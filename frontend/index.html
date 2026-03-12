@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#4e0543" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Asteria Luxury House is a mobile-first collection app for luxury watches, jewelry, eyewear, and signature accessories."
+    />
+    <title>Asteria Luxury House</title>
+    <style>
+      #site-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, #f7f5f7 0%, #f1ebf3 100%);
+        transition: opacity 260ms ease, visibility 260ms ease;
+      }
+
+      #site-loader.is-hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .site-loader__panel {
+        display: grid;
+        justify-items: center;
+        gap: 14px;
+        text-align: center;
+        padding: 28px 26px;
+        border-radius: 28px;
+        background: #ffffff;
+        box-shadow: 0 18px 50px rgba(17, 10, 18, 0.1);
+      }
+
+      .site-loader__mark {
+        width: 58px;
+        height: 58px;
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #4e0543 0%, #7b0c63 100%);
+        color: #ffd65a;
+        font: 700 24px/1 "Poppins", sans-serif;
+      }
+
+      .site-loader__ring {
+        width: 34px;
+        height: 34px;
+        border: 3px solid rgba(78, 5, 67, 0.14);
+        border-top-color: #4e0543;
+        border-radius: 999px;
+        animation: site-loader-spin 0.7s linear infinite;
+      }
+
+      .site-loader__copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .site-loader__copy strong {
+        color: #200e1d;
+        font: 700 18px/1.2 "Poppins", sans-serif;
+      }
+
+      .site-loader__copy span {
+        color: #756a75;
+        font: 500 13px/1.5 "DM Sans", sans-serif;
+      }
+
+      @keyframes site-loader-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="site-loader" aria-live="polite" aria-label="Loading site">
+      <div class="site-loader__panel">
+        <div class="site-loader__mark">A</div>
+        <div class="site-loader__ring"></div>
+        <div class="site-loader__copy">
+          <strong>Asteria Luxury House</strong>
+          <span>Loading your collection experience...</span>
+        </div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
