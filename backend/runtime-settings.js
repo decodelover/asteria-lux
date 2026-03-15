@@ -3,7 +3,7 @@ require('dotenv').config();
 const db = require('./db');
 
 const DEFAULT_PORT = Number(process.env.PORT || 5000);
-const MIN_FEATURED_VIDEO_COUNT = 3;
+const MIN_FEATURED_VIDEO_COUNT = 2;
 const MAX_FEATURED_VIDEO_COUNT = 5;
 
 const parseBoolean = (value, fallback = false) => {

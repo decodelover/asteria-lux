@@ -77,7 +77,7 @@ const PRODUCT_DEFAULTS = {
   stockQuantity: '0',
 }
 
-const MIN_FEATURED_VIDEOS = 3
+const MIN_FEATURED_VIDEOS = 2
 const MAX_FEATURED_VIDEOS = 5
 
 const createFeaturedVideoDraft = (video = {}, index = 0) => ({

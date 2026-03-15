@@ -361,7 +361,7 @@ function FeaturedVideoShowcase({
       <div className="go-section-head">
         <div>
           <h2>Featured edit</h2>
-          <p className="go-featured-video-kicker">Three to five clips. One luxury story in motion.</p>
+          <p className="go-featured-video-kicker">Two to five clips. One luxury story in motion.</p>
         </div>
         <span className="go-featured-video-timer">5s slideshow</span>
       </div>
