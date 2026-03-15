@@ -819,6 +819,59 @@ function CheckoutSheet({
   )
 }
 
+function SignOutSheet({ isOpen, isSubmitting, onCancel, onConfirm }) {
+  if (!isOpen) {
+    return null
+  }
+
+  return (
+    <div
+      className="go-modal-backdrop"
+      onClick={isSubmitting ? undefined : onCancel}
+      role="presentation"
+    >
+      <div
+        aria-labelledby="go-signout-title"
+        aria-modal="true"
+        className="go-modal-card go-modal-card--confirm"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="go-modal-head">
+          <div>
+            <p>Confirm sign out</p>
+            <h2 id="go-signout-title">Leave your dashboard?</h2>
+          </div>
+          <button
+            aria-label="Close sign out confirmation"
+            disabled={isSubmitting}
+            onClick={onCancel}
+            type="button"
+          >
+            <i aria-hidden="true" className="bi bi-x-lg" />
+          </button>
+        </div>
+
+        <div className="go-confirm-sheet">
+          <p>
+            Your orders, saved pieces, and profile details will still be here when you return.
+            Would you like to sign out now?
+          </p>
+
+          <div className="go-confirm-sheet__actions">
+            <button className="go-secondary-btn" disabled={isSubmitting} onClick={onCancel} type="button">
+              No, stay here
+            </button>
+            <button className="go-primary-btn" disabled={isSubmitting} onClick={onConfirm} type="button">
+              {isSubmitting ? 'Signing out...' : 'Yes, sign out'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function MarketplacePage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -892,6 +945,8 @@ export function MarketplacePage() {
   const [authMessage, setAuthMessage] = useState('')
   const [authMessageTone, setAuthMessageTone] = useState('success')
   const [authPreviewUrl, setAuthPreviewUrl] = useState('')
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+  const [logoutSubmitting, setLogoutSubmitting] = useState(false)
   const [settingsForm, setSettingsForm] = useState(() => createSettingsForm(user))
   const [settingsSubmitting, setSettingsSubmitting] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
@@ -1634,6 +1689,52 @@ export function MarketplacePage() {
     }
   }
 
+  const handleRequestSignOut = () => {
+    setLogoutDialogOpen(true)
+  }
+
+  const handleCancelSignOut = () => {
+    if (logoutSubmitting) {
+      return
+    }
+
+    setLogoutDialogOpen(false)
+  }
+
+  const handleConfirmSignOut = async () => {
+    if (logoutSubmitting) {
+      return
+    }
+
+    setLogoutSubmitting(true)
+
+    try {
+      signOut()
+      setLogoutDialogOpen(false)
+      setActiveTab('account')
+      setAuthMode('signin')
+      setAuthMessage('You have been signed out. Sign in again whenever you are ready.')
+      setAuthMessageTone('success')
+      setAuthPreviewUrl('')
+      setSettingsMessage('')
+      setSettingsTone('success')
+      setSignInForm(signInDefaults)
+      setSignUpForm(signUpDefaults)
+      setSettingsForm(createSettingsForm(null))
+      setCheckoutForm(createCheckoutForm(null))
+      setCheckoutOpen(false)
+      setCheckoutIntent(false)
+      resetCheckoutState()
+      setSearchParams({ tab: 'account', mode: 'signin' })
+      setFlashMessage({
+        text: 'Signed out successfully.',
+        type: 'success',
+      })
+    } finally {
+      setLogoutSubmitting(false)
+    }
+  }
+
   const handleRequestCheckout = () => {
     if (!user) {
       setCheckoutIntent(true)
@@ -2030,7 +2131,7 @@ export function MarketplacePage() {
                 settingsSubmitting={settingsSubmitting}
                 settingsTone={settingsTone}
                 signInForm={signInForm}
-                signOut={signOut}
+                signOut={handleRequestSignOut}
                 signUpForm={signUpForm}
                 submitting={authSubmitting}
                 user={user}
@@ -2110,6 +2211,12 @@ export function MarketplacePage() {
         paymentConfig={paymentConfig}
         paymentMethod={checkoutMethod}
         proofFileName={checkoutProofName}
+      />
+      <SignOutSheet
+        isOpen={logoutDialogOpen}
+        isSubmitting={logoutSubmitting}
+        onCancel={handleCancelSignOut}
+        onConfirm={handleConfirmSignOut}
       />
     </>
   )

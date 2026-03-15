@@ -2483,6 +2483,10 @@
   animation: go-sheet-rise 260ms ease;
 }
 
+.go-modal-card--confirm {
+  width: min(520px, 100%);
+}
+
 .go-modal-head {
   display: flex;
   align-items: flex-start;
@@ -2518,6 +2522,25 @@
   display: grid;
   gap: 14px;
   padding: 18px 20px 22px;
+}
+
+.go-confirm-sheet {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.go-confirm-sheet p {
+  margin: 0;
+  color: #6d616d;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.go-confirm-sheet__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .go-payment-methods {
@@ -3054,9 +3077,15 @@
   }
 
   .go-collection-card {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
     padding: 14px;
     border-radius: 18px;
+  }
+
+  .go-collection-copy {
+    order: 2;
   }
 
   .go-collection-copy p {
@@ -3073,13 +3102,16 @@
   }
 
   .go-collection-card .go-primary-btn {
+    order: 3;
     min-height: 38px;
     width: 100%;
     padding: 0 10px;
     font-size: 12px;
+    margin-top: auto;
   }
 
   .go-collection-media {
+    order: 1;
     border-radius: 16px;
   }
 
@@ -3204,9 +3236,19 @@
 
   .go-modal-head,
   .go-checkout-form,
-  .go-order-success {
+  .go-order-success,
+  .go-confirm-sheet {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .go-confirm-sheet__actions {
+    flex-direction: column-reverse;
+  }
+
+  .go-confirm-sheet__actions .go-primary-btn,
+  .go-confirm-sheet__actions .go-secondary-btn {
+    width: 100%;
   }
 
   .go-nav-item span {
