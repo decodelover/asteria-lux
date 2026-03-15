@@ -44,27 +44,21 @@ const TYPING_HEADLINES = [
 
 const CATEGORY_META = {
   All: {
-    icon: 'bi-grid-1x2-fill',
     label: 'All categories',
   },
   Bangles: {
-    icon: 'bi-circle',
     label: 'Bangles',
   },
   Eyewear: {
-    icon: 'bi-eyeglasses',
     label: 'Eyewear',
   },
   Jewelry: {
-    icon: 'bi-diamond-fill',
     label: 'Jewelry',
   },
   Rings: {
-    icon: 'bi-record-circle',
     label: 'Rings',
   },
   Watches: {
-    icon: 'bi-watch',
     label: 'Watches',
   },
 }
@@ -80,9 +74,85 @@ const createEmptyDeviceContext = () => ({
 
 const getCategoryMeta = (category) =>
   CATEGORY_META[category] || {
-    icon: 'bi-stars',
     label: category,
   }
+
+function CategoryIcon({ category }) {
+  const strokeProps = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: 1.8,
+  }
+
+  if (category === 'All') {
+    return (
+      <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+        <rect {...strokeProps} height="6" rx="1.5" width="6" x="4" y="4" />
+        <rect {...strokeProps} height="6" rx="1.5" width="6" x="14" y="4" />
+        <rect {...strokeProps} height="6" rx="1.5" width="6" x="4" y="14" />
+        <rect {...strokeProps} height="6" rx="1.5" width="6" x="14" y="14" />
+      </svg>
+    )
+  }
+
+  if (category === 'Bangles') {
+    return (
+      <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+        <circle {...strokeProps} cx="9.2" cy="10.6" r="4.4" />
+        <circle {...strokeProps} cx="14.8" cy="13.4" r="4.4" />
+        <circle cx="17.9" cy="7.8" fill="currentColor" r="1.1" stroke="none" />
+      </svg>
+    )
+  }
+
+  if (category === 'Eyewear') {
+    return (
+      <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+        <circle {...strokeProps} cx="8" cy="13" r="3.2" />
+        <circle {...strokeProps} cx="16" cy="13" r="3.2" />
+        <path {...strokeProps} d="M4.8 13H4l-1.2-2.2M19.2 13H20l1.2-2.2M11.2 13h1.6" />
+      </svg>
+    )
+  }
+
+  if (category === 'Jewelry') {
+    return (
+      <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+        <path {...strokeProps} d="M9 5h6l3 4-6 10L6 9l3-4Z" />
+        <path {...strokeProps} d="M9 5l3 4 3-4M6 9h12" />
+      </svg>
+    )
+  }
+
+  if (category === 'Rings') {
+    return (
+      <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+        <circle {...strokeProps} cx="12" cy="14.4" r="4.6" />
+        <path {...strokeProps} d="M12 5.2 14 7.2 12 9.2 10 7.2 12 5.2Z" />
+        <path {...strokeProps} d="M12 9.2v1.6" />
+      </svg>
+    )
+  }
+
+  if (category === 'Watches') {
+    return (
+      <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+        <rect {...strokeProps} height="10" rx="4" width="8.6" x="7.7" y="7" />
+        <path {...strokeProps} d="M10 7V4.6c0-.9.7-1.6 1.6-1.6h.8c.9 0 1.6.7 1.6 1.6V7" />
+        <path {...strokeProps} d="M10 17v2.4c0 .9.7 1.6 1.6 1.6h.8c.9 0 1.6-.7 1.6-1.6V17" />
+        <path {...strokeProps} d="M12 10v2.4l1.8 1.2" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg aria-hidden="true" className="go-category-icon" viewBox="0 0 24 24">
+      <path {...strokeProps} d="m12 4 2 4 4 .5-3 2.8.8 4.2-3.8-2.1L8.2 15.5 9 11.3 6 8.5 10 8l2-4Z" />
+    </svg>
+  )
+}
 
 const getBrowserTimezone = () =>
   Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -1967,7 +2037,7 @@ export function MarketplacePage() {
                         title={meta.label}
                         type="button"
                       >
-                        <i className={`bi ${meta.icon}`} aria-hidden="true" />
+                        <CategoryIcon category={category} />
                         <span>{meta.label}</span>
                       </button>
                       )

@@ -1281,8 +1281,12 @@
     box-shadow 180ms ease;
 }
 
-.go-chip--icon i {
-  font-size: 22px;
+.go-chip--icon .go-category-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: block;
+  overflow: visible;
   animation: go-category-bob 2.4s ease-in-out infinite;
   animation-delay: var(--go-chip-delay, 0ms);
 }
@@ -3275,8 +3279,10 @@
     height: 50px;
   }
 
-  .go-chip--icon i {
-    font-size: 19px;
+  .go-chip--icon .go-category-icon {
+    width: 21px;
+    height: 21px;
+    flex-basis: 21px;
   }
 
   .go-carousel-slide {
