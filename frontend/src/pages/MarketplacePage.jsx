@@ -271,14 +271,13 @@ function FeaturedVideoShowcase({
   storeName,
 }) {
   const videoRef = useRef(null)
-
-  if (featuredVideos.length === 0) {
-    return null
-  }
-
-  const activeVideo = featuredVideos[activeIndex] || featuredVideos[0]
+  const activeVideo = featuredVideos[activeIndex] || featuredVideos[0] || null
 
   useEffect(() => {
+    if (!activeVideo?.videoUrl) {
+      return undefined
+    }
+
     const video = videoRef.current
 
     if (!video) {
@@ -306,7 +305,11 @@ function FeaturedVideoShowcase({
       video.removeEventListener('loadeddata', attemptPlayback)
       video.removeEventListener('canplay', attemptPlayback)
     }
-  }, [activeVideo.videoUrl])
+  }, [activeVideo?.videoUrl])
+
+  if (!activeVideo) {
+    return null
+  }
 
   return (
     <section className="go-featured-video-section">
