@@ -1101,32 +1101,6 @@
   object-fit: cover;
   display: block;
   background: #14091d;
-  cursor: pointer;
-}
-
-.go-featured-video-play-fallback {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  z-index: 2;
-  transform: translate(-50%, -50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(22, 9, 31, 0.84);
-  box-shadow: 0 20px 40px rgba(14, 6, 20, 0.28);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-}
-
-.go-featured-video-play-fallback i {
-  font-size: 18px;
 }
 
 .go-featured-video-overlay {
@@ -3467,12 +3441,6 @@
   .go-featured-video-overlay {
     gap: 8px;
     padding: 18px;
-  }
-
-  .go-featured-video-play-fallback {
-    min-height: 42px;
-    padding: 0 16px;
-    font-size: 13px;
   }
 
   .go-featured-video-overlay h3 {
