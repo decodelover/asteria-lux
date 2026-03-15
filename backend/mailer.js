@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const { getRuntimeSettings } = require('./runtime-settings');
 
 const isProduction = process.env.NODE_ENV === 'production';
+const FALLBACK_STORE_NAME = 'Asteria Luxury House';
 const SMTP_CONNECTION_TIMEOUT_MS = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000);
 const SMTP_GREETING_TIMEOUT_MS = Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000);
 const SMTP_SOCKET_TIMEOUT_MS = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000);
@@ -13,6 +14,30 @@ const MAIL_SEND_TIMEOUT_MS = Number(process.env.MAIL_SEND_TIMEOUT_MS || 15000);
 let cachedMailer = null;
 let cachedMailerKey = '';
 let currentMailMode = isProduction ? 'disabled' : 'preview';
+
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const extractEmailAddress = (value) => {
+  const normalized = String(value ?? '').trim();
+
+  if (!normalized) {
+    return '';
+  }
+
+  const match = normalized.match(/<([^>]+)>/);
+  return (match ? match[1] : normalized).trim();
+};
+
+const buildMailbox = (displayName, value) => {
+  const emailAddress = extractEmailAddress(value);
+  return emailAddress ? `${displayName} <${emailAddress}>` : '';
+};
 
 const withTimeout = (promise, timeoutMs, message) =>
   new Promise((resolve, reject) => {
@@ -51,6 +76,74 @@ const getMailMode = async () => {
 const getPublicSiteUrl = async () => {
   const settings = await getRuntimeSettings();
   return settings.email.appBaseUrl;
+};
+
+const getBrandContext = (settings) => {
+  const storeName = String(settings?.brand?.storeName || FALLBACK_STORE_NAME).trim() || FALLBACK_STORE_NAME;
+  const supportEmail = extractEmailAddress(
+    settings?.brand?.supportEmail || settings?.email?.supportEmail || '',
+  );
+  const senderEmail = extractEmailAddress(
+    settings?.email?.smtpFromEmail || settings?.email?.smtpUser || supportEmail || '',
+  );
+
+  return {
+    senderEmail,
+    storeName,
+    supportEmail,
+  };
+};
+
+const buildBrandedSubject = (subject, settings) => {
+  const { storeName } = getBrandContext(settings);
+  return String(subject || '').startsWith(`${storeName} | `)
+    ? String(subject || '')
+    : `${storeName} | ${subject}`;
+};
+
+const buildBrandedHtml = ({ bodyHtml, settings }) => {
+  const { storeName, supportEmail } = getBrandContext(settings);
+  const supportMarkup = supportEmail
+    ? `
+        <p style="margin:8px 0 0;">
+          Need help? Reply to
+          <a href="mailto:${escapeHtml(supportEmail)}" style="color:#7b0c63;text-decoration:none;">
+            ${escapeHtml(supportEmail)}
+          </a>
+        </p>
+      `
+    : '';
+
+  return `
+    <div style="margin:0;padding:24px;background:#f6f1f5;font-family:Arial,sans-serif;color:#201713;">
+      <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:28px;overflow:hidden;box-shadow:0 18px 50px rgba(17,10,18,0.08);">
+        <div style="padding:24px 28px;background:linear-gradient(135deg,#4e0543 0%,#7b0c63 100%);color:#ffffff;">
+          <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.78;">
+            Client services
+          </p>
+          <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2;">
+            ${escapeHtml(storeName)}
+          </h1>
+        </div>
+        <div style="padding:28px;">${bodyHtml}</div>
+        <div style="padding:18px 28px;border-top:1px solid #eee7ef;background:#fcfafc;color:#6f6470;font-size:13px;line-height:1.6;">
+          <p style="margin:0;">Sent by ${escapeHtml(storeName)}</p>
+          ${supportMarkup}
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const buildBrandedText = ({ settings, subject, text }) => {
+  const { storeName, supportEmail } = getBrandContext(settings);
+  let output = `${storeName}\n${subject}\n\n${String(text || '').trim()}`;
+
+  if (supportEmail) {
+    output += `\n\nSupport: ${supportEmail}`;
+  }
+
+  return output.trim();
 };
 
 const buildMailerKey = (settings, mode) =>
@@ -167,8 +260,12 @@ const formatMoney = (value, settings) =>
 const sendMail = async ({ html, subject, text, to }) => {
   const settings = await getRuntimeSettings();
   const mailer = await getMailer(settings);
+  const { senderEmail, storeName, supportEmail } = getBrandContext(settings);
+  const brandedSubject = buildBrandedSubject(subject, settings);
   const mailFrom =
-    settings.email.smtpFromEmail || `Asteria Luxury House <no-reply@asterialuxury.test>`;
+    buildMailbox(storeName, senderEmail || supportEmail) ||
+    `${FALLBACK_STORE_NAME} <no-reply@asterialuxury.test>`;
+  const replyTo = supportEmail ? buildMailbox(`${storeName} Support`, supportEmail) : undefined;
 
   if (!mailer.transporter) {
     console.log(`Mail not sent because email delivery is disabled. Subject: ${subject} To: ${to}`);
@@ -184,9 +281,10 @@ const sendMail = async ({ html, subject, text, to }) => {
     const info = await withTimeout(
       mailer.transporter.sendMail({
         from: mailFrom,
-        html,
-        subject,
-        text,
+        html: buildBrandedHtml({ bodyHtml: html, settings }),
+        replyTo,
+        subject: brandedSubject,
+        text: buildBrandedText({ settings, subject: brandedSubject, text }),
         to,
       }),
       MAIL_SEND_TIMEOUT_MS,
