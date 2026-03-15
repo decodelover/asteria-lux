@@ -118,6 +118,13 @@ export const api = {
       token,
     }),
 
+  testAdminEmailSettings: ({ payload, token }) =>
+    request('/admin/settings/email/test', {
+      body: JSON.stringify(payload),
+      method: 'POST',
+      token,
+    }),
+
   checkout: (payload, token) =>
     request('/checkout', {
       body: JSON.stringify(payload),

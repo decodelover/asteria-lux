@@ -49,6 +49,42 @@ const getBrevoApiKey = (settings) =>
 
 const hasBrevoApiConfig = (settings) => Boolean(getBrevoApiKey(settings));
 
+const getRequestedMailProvider = (settings) =>
+  String(settings?.email?.provider || 'auto').trim().toLowerCase();
+
+const resolveMailMode = (settings) => {
+  const requestedProvider = getRequestedMailProvider(settings);
+  const hasSmtpConfig = Boolean(
+    settings?.email?.smtpHost &&
+      settings?.email?.smtpPort &&
+      settings?.email?.smtpUser &&
+      settings?.email?.smtpPass,
+  );
+  const hasBrevo = hasBrevoApiConfig(settings);
+
+  if (requestedProvider === 'disabled') {
+    return isProduction ? 'disabled' : 'preview';
+  }
+
+  if (requestedProvider === 'brevo_api') {
+    return hasBrevo ? 'brevo_api' : isProduction ? 'disabled' : 'preview';
+  }
+
+  if (requestedProvider === 'smtp') {
+    return hasSmtpConfig ? 'smtp' : isProduction ? 'disabled' : 'preview';
+  }
+
+  if (hasBrevo) {
+    return 'brevo_api';
+  }
+
+  if (hasSmtpConfig) {
+    return 'smtp';
+  }
+
+  return isProduction ? 'disabled' : 'preview';
+};
+
 const withTimeout = (promise, timeoutMs, message) =>
   new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -69,22 +105,7 @@ const withTimeout = (promise, timeoutMs, message) =>
 
 const getMailMode = async () => {
   const settings = await getRuntimeSettings();
-  const hasSmtpConfig = Boolean(
-    settings.email.smtpHost &&
-      settings.email.smtpPort &&
-      settings.email.smtpUser &&
-      settings.email.smtpPass,
-  );
-
-  if (hasBrevoApiConfig(settings)) {
-    return 'brevo_api';
-  }
-
-  if (hasSmtpConfig) {
-    return 'smtp';
-  }
-
-  return isProduction ? 'disabled' : 'preview';
+  return resolveMailMode(settings);
 };
 
 const getPublicSiteUrl = async () => {
@@ -309,14 +330,9 @@ const createPreviewMailer = async () => {
 };
 
 const createMailer = async (settings) => {
-  const hasSmtpConfig = Boolean(
-    settings.email.smtpHost &&
-      settings.email.smtpPort &&
-      settings.email.smtpUser &&
-      settings.email.smtpPass,
-  );
+  const resolvedMode = resolveMailMode(settings);
 
-  if (hasBrevoApiConfig(settings)) {
+  if (resolvedMode === 'brevo_api') {
     currentMailMode = 'brevo_api';
     return {
       mode: 'brevo_api',
@@ -324,7 +340,7 @@ const createMailer = async (settings) => {
     };
   }
 
-  if (hasSmtpConfig) {
+  if (resolvedMode === 'smtp') {
     currentMailMode = 'smtp';
     return {
       mode: 'smtp',
@@ -345,10 +361,10 @@ const createMailer = async (settings) => {
     };
   }
 
-  if (isProduction) {
+  if (resolvedMode === 'disabled') {
     currentMailMode = 'disabled';
     return {
-      initError: 'SMTP is not configured in production.',
+      initError: 'Email delivery is not configured in production.',
       mode: 'disabled',
       transporter: null,
     };

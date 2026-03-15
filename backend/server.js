@@ -2447,6 +2447,45 @@ api.put(
 );
 
 api.post(
+  '/admin/settings/email/test',
+  authLimiter,
+  requireAdmin,
+  requireAdminCapability('settings'),
+  handleAsync(async (req, res) => {
+    const to = normalizeOptionalText(req.body.to, 255) || req.admin.email;
+
+    if (!validateEmail(to)) {
+      return sendApiError(res, 400, 'A valid test email recipient is required.');
+    }
+
+    const subject = 'Mail settings test';
+    const message = [
+      'This is a test email from the admin settings panel.',
+      '',
+      'If you received this, the current live email configuration is working.',
+      `Sent at: ${new Date().toISOString()}`,
+    ].join('\n');
+
+    const mail = await sendManualCustomerEmail({
+      email: to,
+      message,
+      subject,
+    });
+
+    res.status(200).json({
+      mailDelivered: mail.delivered,
+      mailError: mail.error || undefined,
+      mailMode: mail.mode,
+      mailPreviewUrl: mail.previewUrl || undefined,
+      message: mail.delivered
+        ? `Test email sent to ${to}.`
+        : `Test email could not be delivered to ${to}.`,
+      success: true,
+    });
+  }),
+);
+
+api.post(
   '/admin/products',
   authLimiter,
   requireAdmin,

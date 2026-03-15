@@ -3,6 +3,7 @@ require('dotenv').config();
 const db = require('./db');
 
 const DEFAULT_PORT = Number(process.env.PORT || 5000);
+const EMAIL_PROVIDERS = new Set(['auto', 'disabled', 'smtp', 'brevo_api']);
 
 const parseBoolean = (value, fallback = false) => {
   if (typeof value === 'boolean') {
@@ -30,6 +31,29 @@ const normalizePort = (value, fallback = 587) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
+
+const hasOwn = (input, key) =>
+  Boolean(input) && Object.prototype.hasOwnProperty.call(input, key);
+
+const pickOptionalText = (input, key, maxLength, fallback = '') =>
+  hasOwn(input, key) ? normalizeOptionalText(input[key], maxLength) : fallback;
+
+const pickText = (input, key, maxLength, fallback = '') =>
+  hasOwn(input, key) ? normalizeText(input[key], maxLength, fallback) : fallback;
+
+const pickPort = (input, key, fallback = 587) =>
+  hasOwn(input, key) ? normalizePort(input[key], fallback) : fallback;
+
+const pickBoolean = (input, key, fallback = false) =>
+  hasOwn(input, key) ? parseBoolean(input[key], fallback) : fallback;
+
+const normalizeEmailProvider = (value, fallback = 'auto') => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return EMAIL_PROVIDERS.has(normalized) ? normalized : fallback;
+};
+
+const pickEmailProvider = (input, key, fallback = 'auto') =>
+  hasOwn(input, key) ? normalizeEmailProvider(input[key], fallback) : fallback;
 
 const normalizeHeadlines = (value, fallback) => {
   if (!Array.isArray(value)) {
@@ -81,6 +105,10 @@ const createDefaultSettings = () => ({
     paystackSecretKey: normalizeOptionalText(process.env.PAYSTACK_SECRET_KEY, 255),
   },
   email: {
+    provider: normalizeEmailProvider(
+      process.env.EMAIL_PROVIDER,
+      process.env.BREVO_API_KEY ? 'brevo_api' : 'auto',
+    ),
     appBaseUrl: normalizeText(
       process.env.APP_BASE_URL || process.env.FRONTEND_URL,
       255,
@@ -109,11 +137,10 @@ const normalizeGroup = (key, input = {}, defaults = createDefaultSettings()[key]
   switch (key) {
     case 'brand':
       return {
-        storeName: normalizeText(input.storeName, 120, defaults.storeName),
-        supportEmail: normalizeOptionalText(input.supportEmail, 255) || defaults.supportEmail,
-        supportPhone: normalizeOptionalText(input.supportPhone, 40) || defaults.supportPhone,
-        whatsappNumber:
-          normalizeOptionalText(input.whatsappNumber, 32) || defaults.whatsappNumber,
+        storeName: pickText(input, 'storeName', 120, defaults.storeName),
+        supportEmail: pickOptionalText(input, 'supportEmail', 255, defaults.supportEmail),
+        supportPhone: pickOptionalText(input, 'supportPhone', 40, defaults.supportPhone),
+        whatsappNumber: pickOptionalText(input, 'whatsappNumber', 32, defaults.whatsappNumber),
       };
     case 'storefront':
       return {
@@ -121,38 +148,32 @@ const normalizeGroup = (key, input = {}, defaults = createDefaultSettings()[key]
       };
     case 'payments':
       return {
-        bankAccountName:
-          normalizeOptionalText(input.bankAccountName, 160) || defaults.bankAccountName,
+        bankAccountName: pickOptionalText(input, 'bankAccountName', 160, defaults.bankAccountName),
         bankAccountNumber:
-          normalizeOptionalText(input.bankAccountNumber, 80) || defaults.bankAccountNumber,
-        bankInstructions:
-          normalizeText(input.bankInstructions, 600, defaults.bankInstructions) ||
-          defaults.bankInstructions,
-        bankName: normalizeOptionalText(input.bankName, 120) || defaults.bankName,
-        bankTransferEnabled: parseBoolean(input.bankTransferEnabled, defaults.bankTransferEnabled),
-        currency: normalizeText(input.currency, 10, defaults.currency).toUpperCase(),
-        locale: normalizeText(input.locale, 20, defaults.locale),
+          pickOptionalText(input, 'bankAccountNumber', 80, defaults.bankAccountNumber),
+        bankInstructions: pickText(input, 'bankInstructions', 600, defaults.bankInstructions),
+        bankName: pickOptionalText(input, 'bankName', 120, defaults.bankName),
+        bankTransferEnabled: pickBoolean(input, 'bankTransferEnabled', defaults.bankTransferEnabled),
+        currency: pickText(input, 'currency', 10, defaults.currency).toUpperCase(),
+        locale: pickText(input, 'locale', 20, defaults.locale),
         paystackPublicKey:
-          normalizeOptionalText(input.paystackPublicKey, 255) || defaults.paystackPublicKey,
+          pickOptionalText(input, 'paystackPublicKey', 255, defaults.paystackPublicKey),
         paystackSecretKey:
-          normalizeOptionalText(input.paystackSecretKey, 255) || defaults.paystackSecretKey,
+          pickOptionalText(input, 'paystackSecretKey', 255, defaults.paystackSecretKey),
       };
     case 'email':
       return {
-        appBaseUrl: normalizeText(input.appBaseUrl, 255, defaults.appBaseUrl),
-        brevoApiBaseUrl:
-          normalizeText(input.brevoApiBaseUrl, 255, defaults.brevoApiBaseUrl) ||
-          defaults.brevoApiBaseUrl,
-        brevoApiKey:
-          normalizeOptionalText(input.brevoApiKey, 255) || defaults.brevoApiKey,
-        smtpFromEmail:
-          normalizeOptionalText(input.smtpFromEmail, 255) || defaults.smtpFromEmail,
-        smtpHost: normalizeOptionalText(input.smtpHost, 255) || defaults.smtpHost,
-        smtpPass: normalizeOptionalText(input.smtpPass, 255) || defaults.smtpPass,
-        smtpPort: normalizePort(input.smtpPort, defaults.smtpPort),
-        smtpSecure: parseBoolean(input.smtpSecure, defaults.smtpSecure),
-        smtpUser: normalizeOptionalText(input.smtpUser, 255) || defaults.smtpUser,
-        supportEmail: normalizeOptionalText(input.supportEmail, 255) || defaults.supportEmail,
+        provider: pickEmailProvider(input, 'provider', defaults.provider),
+        appBaseUrl: pickText(input, 'appBaseUrl', 255, defaults.appBaseUrl),
+        brevoApiBaseUrl: pickText(input, 'brevoApiBaseUrl', 255, defaults.brevoApiBaseUrl),
+        brevoApiKey: pickOptionalText(input, 'brevoApiKey', 255, defaults.brevoApiKey),
+        smtpFromEmail: pickOptionalText(input, 'smtpFromEmail', 255, defaults.smtpFromEmail),
+        smtpHost: pickOptionalText(input, 'smtpHost', 255, defaults.smtpHost),
+        smtpPass: pickOptionalText(input, 'smtpPass', 255, defaults.smtpPass),
+        smtpPort: pickPort(input, 'smtpPort', defaults.smtpPort),
+        smtpSecure: pickBoolean(input, 'smtpSecure', defaults.smtpSecure),
+        smtpUser: pickOptionalText(input, 'smtpUser', 255, defaults.smtpUser),
+        supportEmail: pickOptionalText(input, 'supportEmail', 255, defaults.supportEmail),
       };
     default:
       return defaults;

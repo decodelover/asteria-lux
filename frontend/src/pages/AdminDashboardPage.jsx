@@ -147,6 +147,7 @@ const createSettingsForm = (settings) => ({
   },
   email: {
     appBaseUrl: settings?.email?.appBaseUrl || '',
+    provider: settings?.email?.provider || 'auto',
     brevoApiBaseUrl: settings?.email?.brevoApiBaseUrl || 'https://api.brevo.com/v3',
     brevoApiKey: settings?.email?.brevoApiKey || '',
     smtpFromEmail: settings?.email?.smtpFromEmail || '',
@@ -406,6 +407,7 @@ export function AdminDashboardPage() {
   const [admins, setAdmins] = useState([])
   const [contacts, setContacts] = useState([])
   const [settingsForm, setSettingsForm] = useState(createSettingsForm(null))
+  const [settingsTestRecipient, setSettingsTestRecipient] = useState('')
   const [productForm, setProductForm] = useState(PRODUCT_DEFAULTS)
   const [productEditorOpen, setProductEditorOpen] = useState(false)
   const [editingProductId, setEditingProductId] = useState(null)
@@ -428,13 +430,22 @@ export function AdminDashboardPage() {
   }, [section, visibleSections])
 
   const hydrateAdminData = (response) => {
+    const nextSettingsForm = createSettingsForm(response.settings)
     setDashboard(response.dashboard || null)
     setProducts(response.products || [])
     setOrders(response.orders || [])
     setUsers(response.users || [])
     setAdmins(response.admins || [])
     setContacts(response.contacts || [])
-    setSettingsForm(createSettingsForm(response.settings))
+    setSettingsForm(nextSettingsForm)
+    setSettingsTestRecipient((current) =>
+      current ||
+      nextSettingsForm.email.supportEmail ||
+      nextSettingsForm.brand.supportEmail ||
+      response.admin?.email ||
+      admin?.email ||
+      '',
+    )
     setOrderDrafts(
       Object.fromEntries(
         (response.orders || []).map((order) => [order.orderNumber, createOrderDraft(order)]),
@@ -908,6 +919,35 @@ export function AdminDashboardPage() {
       'Admin settings saved and synced to the site.',
       'Unable to save admin settings.',
     )
+  }
+
+  const testEmailSettings = async () => {
+    const to =
+      settingsTestRecipient ||
+      settingsForm.email.supportEmail ||
+      settingsForm.brand.supportEmail ||
+      admin?.email ||
+      ''
+
+    setSubmitting(true)
+    setMessage('')
+
+    try {
+      await api.updateAdminSettings(settingsForm, token)
+      const response = await api.testAdminEmailSettings({
+        payload: { to },
+        token,
+      })
+      await Promise.all([refreshSettings(), refreshPaymentConfig().catch(() => {})])
+      await loadAdminData()
+      setMessage(response.message || `Test email sent to ${to}.`)
+      setMessageTone(response.mailDelivered === false ? 'warning' : 'success')
+    } catch (error) {
+      setMessage(error.message || 'Unable to send test email.')
+      setMessageTone('warning')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const setSectionValue = (value) => {
@@ -1917,6 +1957,19 @@ export function AdminDashboardPage() {
             />
           </Field>
 
+          <Field label="Delivery provider">
+            <select
+              className={INPUT_CLASS}
+              value={settingsForm.email.provider}
+              onChange={(event) => updateSettingsField('email', 'provider', event.target.value)}
+            >
+              <option value="auto">Auto detect</option>
+              <option value="brevo_api">Brevo API</option>
+              <option value="smtp">SMTP</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </Field>
+
           <Field label="Brevo API key">
             <input
               className={INPUT_CLASS}
@@ -1970,6 +2023,7 @@ export function AdminDashboardPage() {
           <Field label="SMTP password">
             <input
               className={INPUT_CLASS}
+              type="password"
               value={settingsForm.email.smtpPass}
               onChange={(event) => updateSettingsField('email', 'smtpPass', event.target.value)}
             />
@@ -1989,6 +2043,26 @@ export function AdminDashboardPage() {
             hint="Enable this if your SMTP provider requires a secure connection."
             onChange={(event) => updateSettingsField('email', 'smtpSecure', event.target.checked)}
           />
+
+          <Field label="Test recipient">
+            <input
+              className={INPUT_CLASS}
+              placeholder="support@example.com"
+              type="email"
+              value={settingsTestRecipient}
+              onChange={(event) => setSettingsTestRecipient(event.target.value)}
+            />
+          </Field>
+
+          <div className="lg:col-span-2 flex flex-wrap items-center gap-3">
+            <button className={SECONDARY_BUTTON_CLASS} disabled={submitting} type="button" onClick={testEmailSettings}>
+              <i aria-hidden="true" className="bi bi-send-check" />
+              <span>Save & send test email</span>
+            </button>
+            <p className="text-sm text-slate-500">
+              This saves the current mail settings first, then sends a test message using the selected provider.
+            </p>
+          </div>
         </div>
       </Panel>
 
