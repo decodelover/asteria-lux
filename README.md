@@ -118,12 +118,10 @@ Common frontend variables:
 
 ## Admin Access
 
-Default local admin created by the schema bootstrap:
+The initial owner admin is created from your configured `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+environment variables during bootstrap.
 
-- email: `admin@asterialuxury.local`
-- password: `Admin123!`
-
-Change this before production deployment.
+After first sign-in, change the password from the admin dashboard security panel before going live.
 
 ## Quality Checks
 

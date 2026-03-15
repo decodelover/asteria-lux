@@ -4,6 +4,8 @@ import { ProductCard } from '../components/ProductCard'
 import { useStore } from '../hooks/useStore'
 import { api } from '../lib/api'
 
+const FEATURED_PRODUCT_REFRESH_INTERVAL_MS = 15000
+
 const pillars = [
   {
     description:
@@ -33,7 +35,11 @@ export function HomePage() {
   useEffect(() => {
     let ignore = false
 
-    const loadFeaturedProducts = async () => {
+    const loadFeaturedProducts = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoading(true)
+      }
+
       try {
         const response = await api.getProducts({ featured: true, sort: 'featured' })
 
@@ -41,16 +47,36 @@ export function HomePage() {
           setFeaturedProducts(response.products.slice(0, 3))
         }
       } finally {
-        if (!ignore) {
+        if (!ignore && !silent) {
           setLoading(false)
         }
       }
     }
 
+    const refreshSilently = () => {
+      if (document.hidden) {
+        return
+      }
+
+      loadFeaturedProducts({ silent: true }).catch(() => {})
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshSilently()
+      }
+    }
+
     loadFeaturedProducts()
+    const timer = window.setInterval(refreshSilently, FEATURED_PRODUCT_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', refreshSilently)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       ignore = true
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshSilently)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 

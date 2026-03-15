@@ -114,6 +114,7 @@ const ADMIN_CREATE_DEFAULTS = {
 }
 
 const ADMIN_PASSWORD_DEFAULTS = {
+  confirmPassword: '',
   currentPassword: '',
   newPassword: '',
 }
@@ -1024,9 +1025,21 @@ export function AdminDashboardPage() {
   const changeAdminPassword = async (event) => {
     event.preventDefault()
 
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setMessage('New password and confirmation do not match.')
+      setMessageTone('warning')
+      return
+    }
+
     await handleAction(
       async () => {
-        await api.adminChangePassword(passwordForm, token)
+        await api.adminChangePassword(
+          {
+            currentPassword: passwordForm.currentPassword,
+            newPassword: passwordForm.newPassword,
+          },
+          token,
+        )
         setPasswordForm(ADMIN_PASSWORD_DEFAULTS)
       },
       'Admin password changed.',
@@ -1085,6 +1098,55 @@ export function AdminDashboardPage() {
     startTransition(() => setSection(value))
     setMenuOpen(false)
   }
+
+  const renderAdminPasswordPanel = ({ className = '', description = 'Update your current admin password without leaving the dashboard.' } = {}) => (
+    <Panel
+      className={className}
+      description={description}
+      icon="bi-key"
+      title="Change my password"
+    >
+      <form className="grid gap-4" onSubmit={changeAdminPassword}>
+        <Field label="Current password">
+          <input
+            className={INPUT_CLASS}
+            type="password"
+            value={passwordForm.currentPassword}
+            onChange={(event) =>
+              setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))
+            }
+          />
+        </Field>
+
+        <Field label="New password">
+          <input
+            className={INPUT_CLASS}
+            type="password"
+            value={passwordForm.newPassword}
+            onChange={(event) =>
+              setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))
+            }
+          />
+        </Field>
+
+        <Field label="Confirm new password">
+          <input
+            className={INPUT_CLASS}
+            type="password"
+            value={passwordForm.confirmPassword}
+            onChange={(event) =>
+              setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))
+            }
+          />
+        </Field>
+
+        <button className={PRIMARY_BUTTON_CLASS} disabled={submitting} type="submit">
+          <i aria-hidden="true" className="bi bi-shield-check" />
+          <span>Update password</span>
+        </button>
+      </form>
+    </Panel>
+  )
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -1769,40 +1831,7 @@ export function AdminDashboardPage() {
           </form>
         </Panel>
 
-        <Panel
-          description="Update your current admin password without leaving the dashboard."
-          icon="bi-key"
-          title="Change my password"
-        >
-          <form className="grid gap-4" onSubmit={changeAdminPassword}>
-            <Field label="Current password">
-              <input
-                className={INPUT_CLASS}
-                type="password"
-                value={passwordForm.currentPassword}
-                onChange={(event) =>
-                  setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))
-                }
-              />
-            </Field>
-
-            <Field label="New password">
-              <input
-                className={INPUT_CLASS}
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(event) =>
-                  setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))
-                }
-              />
-            </Field>
-
-            <button className={PRIMARY_BUTTON_CLASS} disabled={submitting} type="submit">
-              <i aria-hidden="true" className="bi bi-shield-check" />
-              <span>Update password</span>
-            </button>
-          </form>
-        </Panel>
+        {renderAdminPasswordPanel()}
       </div>
 
       <Panel
@@ -2341,6 +2370,11 @@ export function AdminDashboardPage() {
           </div>
         </div>
       </Panel>
+
+      {renderAdminPasswordPanel({
+        description:
+          'Security controls for your current admin session. Change your password here after first login or any time you need to rotate it.',
+      })}
 
       <div className="rounded-[28px] border border-white/70 bg-white/92 p-5 shadow-[0_22px_60px_rgba(94,49,133,0.1)] backdrop-blur">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

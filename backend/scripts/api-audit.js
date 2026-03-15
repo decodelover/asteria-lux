@@ -13,8 +13,8 @@ const { hashToken } = require('../security');
 const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.PORT || 5000);
 const BASE_URL = String(process.env.AUDIT_BASE_URL || `http://127.0.0.1:${PORT}/api`).replace(/\/+$/, '');
-const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || 'admin@asterialuxury.local').trim().toLowerCase();
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || 'Admin123!').trim() || 'Admin123!';
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '').trim();
 const STAMP = Date.now();
 const PASS = '[PASS]';
 const SKIP = '[SKIP]';
@@ -33,6 +33,10 @@ const state = {
 let spawnedServer = null;
 let passedChecks = 0;
 const warnings = [];
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set in backend/.env before running npm run audit:api.');
+}
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

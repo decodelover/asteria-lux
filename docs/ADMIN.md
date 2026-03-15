@@ -7,12 +7,10 @@ Local admin routes:
 - login: `/admin/login`
 - dashboard: `/admin`
 
-Default local bootstrap admin:
+The initial owner admin comes from your configured `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+environment variables during bootstrap.
 
-- email: `admin@asterialuxury.local`
-- password: `Admin123!`
-
-Change these credentials before production use.
+Rotate that password from the admin dashboard security panel before production use.
 
 ## Admin Areas
 

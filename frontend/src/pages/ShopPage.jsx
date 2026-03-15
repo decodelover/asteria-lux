@@ -7,6 +7,8 @@ import { useStore } from '../hooks/useStore'
 import { api } from '../lib/api'
 import { formatCurrency, formatNumber } from '../utils/format'
 
+const PRODUCT_REFRESH_INTERVAL_MS = 15000
+
 const CATEGORY_META = {
   All: { icon: 'bi-grid-3x3-gap', label: 'All Pieces' },
   Bangles: { icon: 'bi-record-circle', label: 'Bangles' },
@@ -103,8 +105,10 @@ export function ShopPage() {
   useEffect(() => {
     let ignore = false
 
-    const loadProducts = async () => {
-      setCatalogLoading(true)
+    const loadProducts = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setCatalogLoading(true)
+      }
 
       try {
         const response = await api.getProducts({
@@ -117,23 +121,43 @@ export function ShopPage() {
           setProducts(response.products)
         }
       } catch (error) {
-        if (!ignore) {
+        if (!ignore && !silent) {
           setMessage({
             text: error.message || 'Failed to load products.',
             type: 'error',
           })
         }
       } finally {
-        if (!ignore) {
+        if (!ignore && !silent) {
           setCatalogLoading(false)
         }
       }
     }
 
+    const refreshSilently = () => {
+      if (document.hidden) {
+        return
+      }
+
+      loadProducts({ silent: true }).catch(() => {})
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshSilently()
+      }
+    }
+
     loadProducts()
+    const timer = window.setInterval(refreshSilently, PRODUCT_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', refreshSilently)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       ignore = true
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshSilently)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [deferredSearch, selectedCategory, sortOrder])
 

@@ -9,8 +9,8 @@ export function AdminLoginPage() {
   const navigate = useNavigate()
   const { signIn } = useAdminAuth()
   const [form, setForm] = useState({
-    email: 'admin@asterialuxury.local',
-    password: 'Admin123!',
+    email: '',
+    password: '',
   })
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -106,6 +106,7 @@ export function AdminLoginPage() {
                 autoComplete="username"
                 className={INPUT_CLASS}
                 name="email"
+                placeholder="name@yourstore.com"
                 required
                 type="email"
                 value={form.email}
@@ -121,6 +122,7 @@ export function AdminLoginPage() {
                 autoComplete="current-password"
                 className={INPUT_CLASS}
                 name="password"
+                placeholder="Enter your password"
                 required
                 type="password"
                 value={form.password}
@@ -146,13 +148,6 @@ export function AdminLoginPage() {
               <span>{submitting ? 'Signing in...' : 'Open dashboard'}</span>
             </button>
           </form>
-
-          <div className="mt-6 rounded-[24px] border border-[#ece1f7] bg-[#fbf8ff] p-4 text-sm text-slate-500">
-            <p className="font-semibold text-[#2c1639]">Default local admin</p>
-            <p className="mt-2">
-              <strong>admin@asterialuxury.local</strong> / <strong>Admin123!</strong>
-            </p>
-          </div>
         </section>
       </div>
     </main>

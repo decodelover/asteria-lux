@@ -42,6 +42,7 @@ const TYPING_HEADLINES = [
   'Curated luxury pieces, delivered with a smoother experience.',
 ]
 const FEATURED_VIDEO_ROTATION_MS = 5000
+const PRODUCT_REFRESH_INTERVAL_MS = 15000
 
 const CATEGORY_META = {
   All: {
@@ -1229,8 +1230,10 @@ export function MarketplacePage() {
   useEffect(() => {
     let ignore = false
 
-    const loadProducts = async () => {
-      setLoadingProducts(true)
+    const loadProducts = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoadingProducts(true)
+      }
 
       try {
         const response = await api.getProducts({ sort: 'featured' })
@@ -1239,23 +1242,43 @@ export function MarketplacePage() {
           setAllProducts(response.products || [])
         }
       } catch (error) {
-        if (!ignore) {
+        if (!ignore && !silent) {
           setFlashMessage({
             text: error.message || 'Unable to load the collection right now.',
             type: 'warning',
           })
         }
       } finally {
-        if (!ignore) {
+        if (!ignore && !silent) {
           setLoadingProducts(false)
         }
       }
     }
 
+    const refreshSilently = () => {
+      if (document.hidden) {
+        return
+      }
+
+      loadProducts({ silent: true }).catch(() => {})
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshSilently()
+      }
+    }
+
     loadProducts()
+    const timer = window.setInterval(refreshSilently, PRODUCT_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', refreshSilently)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       ignore = true
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshSilently)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 

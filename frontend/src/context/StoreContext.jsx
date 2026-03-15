@@ -3,6 +3,8 @@ import { api } from '../lib/api'
 import { getOrCreateSessionId } from '../lib/session'
 import { StoreContext } from './store-context'
 
+const PAYMENT_CONFIG_REFRESH_INTERVAL_MS = 20000
+
 const createEmptyCart = (sessionId) => ({
   sessionId,
   items: [],
@@ -80,7 +82,30 @@ export function StoreProvider({ children }) {
   }, [sessionId])
 
   useEffect(() => {
-    refreshPaymentConfig().catch(() => {})
+    const refreshSilently = () => {
+      if (document.hidden) {
+        return
+      }
+
+      refreshPaymentConfig().catch(() => {})
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshSilently()
+      }
+    }
+
+    refreshSilently()
+    const timer = window.setInterval(refreshSilently, PAYMENT_CONFIG_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', refreshSilently)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshSilently)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const addToCart = async (productId, quantity = 1) => {

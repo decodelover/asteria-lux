@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const db = require('./db');
 const { PRODUCT_CATALOG } = require('./catalog');
 const { hashPassword } = require('./security');
@@ -390,9 +392,11 @@ const ensureSchema = async () => {
     'CREATE INDEX IF NOT EXISTS idx_payment_attempts_session_id ON payment_attempts (session_id);',
   );
 
-  const adminEmail = String(process.env.ADMIN_EMAIL || 'admin@asterialuxury.local').trim().toLowerCase();
+  const adminEmail = String(process.env.ADMIN_EMAIL || 'owner@local-bootstrap.invalid').trim().toLowerCase();
   const adminName = String(process.env.ADMIN_NAME || 'Store Owner').trim() || 'Store Owner';
-  const adminPassword = String(process.env.ADMIN_PASSWORD || 'Admin123!').trim() || 'Admin123!';
+  const configuredAdminPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+  const generatedAdminPassword = crypto.randomBytes(18).toString('base64url');
+  const adminPassword = configuredAdminPassword || generatedAdminPassword;
   const existingAdminResult = await db.query('SELECT id FROM admins WHERE email = $1 LIMIT 1;', [
     adminEmail,
   ]);
@@ -407,6 +411,12 @@ const ensureSchema = async () => {
       `,
       [adminName, adminEmail, passwordHash],
     );
+
+    if (!configuredAdminPassword) {
+      console.warn(
+        `Owner admin created for ${adminEmail} with a generated one-time password. Set ADMIN_PASSWORD before bootstrap or change it immediately from the admin dashboard. Temporary password: ${generatedAdminPassword}`,
+      );
+    }
   }
 };
 

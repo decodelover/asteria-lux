@@ -20,6 +20,7 @@ const buildUrl = (path, query = {}) => {
 const request = async (path, options = {}) => {
   const headers = new Headers(options.headers || {})
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+  const method = String(options.method || 'GET').toUpperCase()
 
   if (options.body && !isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
@@ -32,6 +33,8 @@ const request = async (path, options = {}) => {
   const response = await fetch(buildUrl(path, options.query), {
     ...options,
     headers,
+    cache: options.cache || (method === 'GET' ? 'no-store' : undefined),
+    method,
   })
 
   const payload = await response.json().catch(() => null)
