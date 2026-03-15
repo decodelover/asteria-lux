@@ -16,10 +16,12 @@ const db = require('./db');
 const {
   calculateCartSummary,
   ensureSchema,
+  generateUniqueReferralCode,
   mapCartRow,
   mapOrderRow,
   mapProductRow,
   mapUserRow,
+  normalizeReferralCode,
   toMoney,
 } = require('./schema');
 const {
@@ -167,6 +169,11 @@ const normalizeAdminRole = (value, fallback = 'support') => {
 const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
 const validatePassword = (value) => String(value || '').trim().length >= 8;
+
+const formatReferrerDisplayName = (fullName) => {
+  const firstName = String(fullName || '').trim().split(/\s+/).filter(Boolean)[0] || 'Asteria member';
+  return `${firstName} from Asteria`;
+};
 
 const toMinorUnits = (value) => Math.round(Number(value || 0) * 100);
 
@@ -1833,6 +1840,52 @@ api.post(
   }),
 );
 
+api.get(
+  '/auth/referrals/:referralCode',
+  handleAsync(async (req, res) => {
+    const referralCode = normalizeReferralCode(req.params.referralCode);
+
+    if (!referralCode) {
+      return res.status(200).json({
+        success: true,
+        valid: false,
+        message: 'Enter a referral code to continue.',
+      });
+    }
+
+    const result = await db.query(
+      `
+        SELECT id, full_name, referral_code
+        FROM users
+        WHERE referral_code = $1
+        LIMIT 1;
+      `,
+      [referralCode],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(200).json({
+        success: true,
+        valid: false,
+        message: 'Referral code not found.',
+      });
+    }
+
+    const referrer = result.rows[0];
+    const referrerName = formatReferrerDisplayName(referrer.full_name);
+
+    return res.status(200).json({
+      success: true,
+      valid: true,
+      referral: {
+        code: referrer.referral_code,
+        referrerName,
+      },
+      message: `Referral code applied from ${referrerName}.`,
+    });
+  }),
+);
+
 api.post(
   '/auth/signup',
   authLimiter,
@@ -1840,21 +1893,24 @@ api.post(
     const fullName = String(req.body.fullName || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
-    const phoneNumber = normalizePhoneNumber(req.body.phoneNumber);
+    const acceptedTerms = Boolean(req.body.acceptTerms);
     const newsletterOptIn = Boolean(req.body.newsletterOptIn);
+    const phoneNumber = validatePhoneNumber(req.body.phoneNumber)
+      ? normalizePhoneNumber(req.body.phoneNumber)
+      : null;
+    const referralCode = normalizeReferralCode(req.body.referralCode);
     const deviceContext = await finalizeDeviceContext(req.body);
 
-    if (
-      !fullName ||
-      !validateEmail(email) ||
-      !validatePassword(password) ||
-      !validatePhoneNumber(phoneNumber)
-    ) {
+    if (!fullName || !validateEmail(email) || !validatePassword(password)) {
       return sendApiError(
         res,
         400,
-        'Full name, phone number, a valid email, and a password of at least 8 characters are required.',
+        'Full name, a valid email, and a password of at least 8 characters are required.',
       );
+    }
+
+    if (!acceptedTerms) {
+      return sendApiError(res, 400, 'You must accept the terms and conditions to create an account.');
     }
 
     const client = await db.getClient();
@@ -1873,8 +1929,30 @@ api.post(
         return sendApiError(res, 409, 'That email address is already registered.');
       }
 
+      let referrerUser = null;
+
+      if (referralCode) {
+        const referralResult = await client.query(
+          `
+            SELECT id, full_name, referral_code
+            FROM users
+            WHERE referral_code = $1
+            LIMIT 1;
+          `,
+          [referralCode],
+        );
+
+        if (referralResult.rowCount === 0) {
+          await client.query('ROLLBACK');
+          return sendApiError(res, 400, 'The referral code you entered is not valid.');
+        }
+
+        referrerUser = referralResult.rows[0];
+      }
+
       const passwordHash = await hashPassword(password);
       const verification = requiresEmailVerification ? generateEmailVerificationToken() : null;
+      const generatedReferralCode = await generateUniqueReferralCode(client, fullName);
 
       const userResult = await client.query(
         `
@@ -1884,6 +1962,9 @@ api.post(
             password_hash,
             newsletter_opt_in,
             phone_number,
+            referral_code,
+            referred_by_code,
+            referred_by_user_id,
             default_country,
             default_city,
             last_known_location,
@@ -1893,7 +1974,7 @@ api.post(
             verification_token_hash,
             verification_token_expires_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           RETURNING *;
         `,
         [
@@ -1902,6 +1983,9 @@ api.post(
           passwordHash,
           newsletterOptIn,
           phoneNumber,
+          generatedReferralCode,
+          referrerUser?.referral_code || null,
+          referrerUser?.id || null,
           deviceContext.country,
           deviceContext.city,
           deviceContext.locationLabel,
@@ -1936,6 +2020,7 @@ api.post(
       if (!requiresEmailVerification) {
         return res.status(201).json({
           requiresEmailVerification: false,
+          referralAccepted: Boolean(referrerUser),
           success: true,
           message: 'Account created successfully. Welcome to your dashboard.',
           token,
@@ -1954,6 +2039,7 @@ api.post(
         mailError: verificationMail.delivery.error || undefined,
         mailMode: verificationMail.delivery.mode,
         requiresEmailVerification: true,
+        referralAccepted: Boolean(referrerUser),
         success: true,
         message: buildMailMessage({
           delivery: verificationMail.delivery,

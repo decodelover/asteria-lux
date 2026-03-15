@@ -31,6 +31,40 @@ const calculateCartSummary = (items) => {
   };
 };
 
+const normalizeReferralCode = (value) =>
+  String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 16);
+
+const buildReferralCodeBase = (fullName = '') => {
+  const letters = String(fullName || '')
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 5);
+
+  return letters || 'ASTER';
+};
+
+const generateUniqueReferralCode = async (client = db, fullName = '') => {
+  const base = buildReferralCodeBase(fullName);
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const referralCode = normalizeReferralCode(`${base}${suffix}`).slice(0, 12);
+    const existingResult = await client.query('SELECT 1 FROM users WHERE referral_code = $1 LIMIT 1;', [
+      referralCode,
+    ]);
+
+    if (existingResult.rowCount === 0) {
+      return referralCode;
+    }
+  }
+
+  return normalizeReferralCode(`AST${Date.now().toString(36)}${crypto.randomBytes(2).toString('hex')}`).slice(0, 12);
+};
+
 const mapProductRow = (row) => ({
   id: row.id,
   name: row.name,
@@ -105,6 +139,9 @@ const mapUserRow = (row) => ({
   accountStatus: row.account_status || 'active',
   newsletterOptIn: row.newsletter_opt_in,
   phoneNumber: row.phone_number,
+  referralCode: row.referral_code || null,
+  referredByCode: row.referred_by_code || null,
+  referredByUserId: row.referred_by_user_id || null,
   defaultCountry: row.default_country,
   defaultCity: row.default_city,
   defaultAddress: row.default_address,
@@ -154,6 +191,9 @@ const ensureSchema = async () => {
       account_status VARCHAR(20) NOT NULL DEFAULT 'active',
       newsletter_opt_in BOOLEAN NOT NULL DEFAULT false,
       phone_number VARCHAR(40),
+      referral_code VARCHAR(24),
+      referred_by_code VARCHAR(24),
+      referred_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       default_country VARCHAR(120),
       default_city VARCHAR(120),
       default_address TEXT,
@@ -175,6 +215,9 @@ const ensureSchema = async () => {
       ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) NOT NULL DEFAULT 'active',
       ADD COLUMN IF NOT EXISTS newsletter_opt_in BOOLEAN NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS phone_number VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS referral_code VARCHAR(24),
+      ADD COLUMN IF NOT EXISTS referred_by_code VARCHAR(24),
+      ADD COLUMN IF NOT EXISTS referred_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       ADD COLUMN IF NOT EXISTS default_country VARCHAR(120),
       ADD COLUMN IF NOT EXISTS default_city VARCHAR(120),
       ADD COLUMN IF NOT EXISTS default_address TEXT,
@@ -369,6 +412,8 @@ const ensureSchema = async () => {
   await db.query('CREATE INDEX IF NOT EXISTS idx_products_featured ON products (featured);');
   await db.query('CREATE INDEX IF NOT EXISTS idx_admins_email ON admins (email);');
   await db.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);');
+  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users (referral_code);');
+  await db.query('CREATE INDEX IF NOT EXISTS idx_users_referred_by_user_id ON users (referred_by_user_id);');
   await db.query(
     'CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_email ON newsletter_subscribers (email);',
   );
@@ -417,6 +462,28 @@ const ensureSchema = async () => {
         `Owner admin created for ${adminEmail} with a generated one-time password. Set ADMIN_PASSWORD before bootstrap or change it immediately from the admin dashboard. Temporary password: ${generatedAdminPassword}`,
       );
     }
+  }
+
+  const usersMissingReferralResult = await db.query(
+    `
+      SELECT id, full_name
+      FROM users
+      WHERE referral_code IS NULL OR TRIM(COALESCE(referral_code, '')) = '';
+    `,
+  );
+
+  for (const row of usersMissingReferralResult.rows) {
+    const referralCode = await generateUniqueReferralCode(db, row.full_name);
+    await db.query(
+      `
+        UPDATE users
+        SET
+          referral_code = $2,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1;
+      `,
+      [row.id, referralCode],
+    );
   }
 };
 
@@ -472,10 +539,12 @@ module.exports = {
   calculateCartSummary,
   calculateShippingFee,
   ensureSchema,
+  generateUniqueReferralCode,
   mapCartRow,
   mapOrderRow,
   mapProductRow,
   mapUserRow,
+  normalizeReferralCode,
   seedCatalog,
   toMoney,
 };

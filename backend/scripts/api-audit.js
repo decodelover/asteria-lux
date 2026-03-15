@@ -284,6 +284,7 @@ const main = async () => {
   let primaryToken;
   let primaryUserId;
   let secondaryUserId;
+  let primaryReferralCode;
   let tempAdminId;
   let tempAdminPassword = 'AdminAudit123!';
   let tempProductId;
@@ -352,21 +353,48 @@ const main = async () => {
 
   await check('Customer signup, profile, settings, resend verification, and verify-email work', async () => {
     const primarySignup = await request('/auth/signup', {
-      body: { ...primaryUser, latitude: 6.5244, longitude: 3.3792, newsletterOptIn: true },
-      expected: [201],
-      method: 'POST',
-    });
-    const secondarySignup = await request('/auth/signup', {
-      body: { ...secondaryUser, newsletterOptIn: false },
+      body: {
+        email: primaryUser.email,
+        fullName: primaryUser.fullName,
+        password: primaryUser.password,
+        acceptTerms: true,
+        latitude: 6.5244,
+        longitude: 3.3792,
+        newsletterOptIn: true,
+      },
       expected: [201],
       method: 'POST',
     });
 
     primaryToken = primarySignup.payload?.token;
     primaryUserId = primarySignup.payload?.user?.id;
+    primaryReferralCode = primarySignup.payload?.user?.referralCode;
+
+    assert(primaryReferralCode, 'Primary signup did not return a referral code.');
+
+    const referralLookup = await request(`/auth/referrals/${primaryReferralCode}`);
+    assert(referralLookup.payload?.valid === true, 'Referral lookup did not validate the primary code.');
+
+    const secondarySignup = await request('/auth/signup', {
+      body: {
+        email: secondaryUser.email,
+        fullName: secondaryUser.fullName,
+        password: secondaryUser.password,
+        acceptTerms: true,
+        newsletterOptIn: false,
+        referralCode: primaryReferralCode,
+      },
+      expected: [201],
+      method: 'POST',
+    });
+
     secondaryUserId = secondarySignup.payload?.user?.id;
 
     assert(primaryUserId && secondaryUserId, 'Customer signups did not return ids.');
+    assert(
+      secondarySignup.payload?.user?.referredByCode === primaryReferralCode,
+      'Secondary signup did not store the referral code.',
+    );
 
     if (!primaryToken) {
       const signupLogin = await request('/auth/login', {

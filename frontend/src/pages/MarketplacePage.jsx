@@ -30,10 +30,11 @@ const signInDefaults = {
 const signUpDefaults = {
   email: '',
   fullName: '',
-  newsletterOptIn: true,
-  phoneNumber: '',
+  acceptTerms: false,
   confirmPassword: '',
+  newsletterOptIn: false,
   password: '',
+  referralCode: '',
 }
 
 const TYPING_HEADLINES = [
@@ -78,6 +79,13 @@ const getCategoryMeta = (category) =>
   CATEGORY_META[category] || {
     label: category,
   }
+
+const normalizeReferralCodeInput = (value) =>
+  String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 16)
 
 const getProductSnippet = (description, maxLength = 96) => {
   const normalized = String(description || '').trim()
@@ -583,12 +591,17 @@ function AccountPanel({
   message,
   onAuthModeChange,
   onFieldChange,
+  onForgotPassword,
+  onReferralBlur,
   onResendVerification,
   onSettingsFieldChange,
   onSettingsSubmit,
   onSubmit,
   orders,
   previewUrl,
+  referralChecking,
+  referralMessage,
+  referralTone,
   settingsForm,
   settingsMessage,
   settingsSubmitting,
@@ -599,6 +612,14 @@ function AccountPanel({
   submitting,
   user,
 }) {
+  const [showSignInPassword, setShowSignInPassword] = useState(false)
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const authSubtitle =
+    authMode === 'signin'
+      ? 'Sign in to continue exploring Asteria Luxury House.'
+      : 'Create your account to start shopping with a smoother luxury checkout.'
+
   if (user) {
     return (
       <AccountDashboard
@@ -626,113 +647,187 @@ function AccountPanel({
       <div className="go-auth-shell go-auth-shell--single">
         <div className="go-auth-card go-auth-card--single">
           <div className="go-auth-header">
-            <div className="go-auth-header-row">
-              <h2>{authMode === 'signin' ? 'Sign in' : 'Sign up'}</h2>
-              <span aria-hidden="true" className="go-auth-header-badge is-wave">
-                {'\u{1F44B}'}
-              </span>
-            </div>
-          </div>
-
-          <div className="go-auth-toggle">
-            <button
-              className={authMode === 'signin' ? 'active' : ''}
-              onClick={() => onAuthModeChange('signin')}
-              type="button"
-            >
-              Sign in
-            </button>
-            <button
-              className={authMode === 'signup' ? 'active' : ''}
-              onClick={() => onAuthModeChange('signup')}
-              type="button"
-            >
-              Sign up
-            </button>
+            {authMode === 'signin' && <div className="go-auth-hero-mark">{'\u{1F44B}'}</div>}
+            <h2>{authMode === 'signin' ? 'Welcome Back!' : 'Create Account'}</h2>
+            <p className="go-auth-subtitle">{authSubtitle}</p>
           </div>
 
           <form className="go-auth-form go-auth-form--plain" onSubmit={onSubmit}>
             {authMode === 'signup' && (
               <label className="go-field">
                 <span>Full name</span>
-                <input
-                  name="fullName"
-                  placeholder="Ada Obi"
-                  required
-                  type="text"
-                  value={signUpForm.fullName}
-                  onChange={onFieldChange}
-                />
-              </label>
-            )}
-
-            {authMode === 'signup' && (
-              <label className="go-field">
-                <span>Mobile number</span>
-                <input
-                  name="phoneNumber"
-                  placeholder="0801 234 5678"
-                  required
-                  type="tel"
-                  value={signUpForm.phoneNumber}
-                  onChange={onFieldChange}
-                />
+                <div className="go-auth-input-wrap">
+                  <i aria-hidden="true" className="bi bi-person-fill go-auth-input-icon" />
+                  <input
+                    name="fullName"
+                    placeholder="Enter your full name"
+                    required
+                    type="text"
+                    value={signUpForm.fullName}
+                    onChange={onFieldChange}
+                  />
+                </div>
               </label>
             )}
 
             <label className="go-field">
-              <span>Email</span>
-              <input
-                name="email"
-                placeholder="ada@example.com"
-                required
-                type="email"
-                value={authMode === 'signin' ? signInForm.email : signUpForm.email}
-                onChange={onFieldChange}
-              />
-            </label>
-
-            <label className="go-field">
-              <span>Password</span>
-              <input
-                name="password"
-                placeholder="At least 8 characters"
-                required
-                type="password"
-                value={authMode === 'signin' ? signInForm.password : signUpForm.password}
-                onChange={onFieldChange}
-              />
-            </label>
-
-            {authMode === 'signup' && (
-              <label className="go-field">
-                <span>Confirm password</span>
+              <span>{authMode === 'signin' ? 'Email address' : 'Email'}</span>
+              <div className="go-auth-input-wrap">
+                <i aria-hidden="true" className="bi bi-envelope-fill go-auth-input-icon" />
                 <input
-                  name="confirmPassword"
-                  placeholder="Re-enter your password"
+                  name="email"
+                  placeholder="Enter your email"
                   required
-                  type="password"
-                  value={signUpForm.confirmPassword}
+                  type="email"
+                  value={authMode === 'signin' ? signInForm.email : signUpForm.email}
                   onChange={onFieldChange}
                 />
+              </div>
+            </label>
+
+            <div className={authMode === 'signup' ? 'go-auth-field-grid' : ''}>
+              <label className="go-field">
+                <span>Password</span>
+                <div className="go-auth-input-wrap">
+                  <i aria-hidden="true" className="bi bi-lock-fill go-auth-input-icon" />
+                  <input
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                    type={
+                      authMode === 'signin'
+                        ? showSignInPassword
+                          ? 'text'
+                          : 'password'
+                        : showSignUpPassword
+                          ? 'text'
+                          : 'password'
+                    }
+                    value={authMode === 'signin' ? signInForm.password : signUpForm.password}
+                    onChange={onFieldChange}
+                  />
+                  <button
+                    className="go-auth-visibility-btn"
+                    onClick={() =>
+                      authMode === 'signin'
+                        ? setShowSignInPassword((current) => !current)
+                        : setShowSignUpPassword((current) => !current)
+                    }
+                    type="button"
+                  >
+                    <i
+                      aria-hidden="true"
+                      className={`bi ${
+                        authMode === 'signin'
+                          ? showSignInPassword
+                            ? 'bi-eye-slash'
+                            : 'bi-eye'
+                          : showSignUpPassword
+                            ? 'bi-eye-slash'
+                            : 'bi-eye'
+                      }`}
+                    />
+                  </button>
+                </div>
               </label>
+
+              {authMode === 'signup' && (
+                <label className="go-field">
+                  <span>Confirm password</span>
+                  <div className="go-auth-input-wrap">
+                    <i aria-hidden="true" className="bi bi-shield-lock-fill go-auth-input-icon" />
+                    <input
+                      name="confirmPassword"
+                      placeholder="Confirm your password"
+                      required
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={signUpForm.confirmPassword}
+                      onChange={onFieldChange}
+                    />
+                    <button
+                      className="go-auth-visibility-btn"
+                      onClick={() => setShowConfirmPassword((current) => !current)}
+                      type="button"
+                    >
+                      <i
+                        aria-hidden="true"
+                        className={`bi ${showConfirmPassword ? 'bi-eye-slash' : 'bi-eye'}`}
+                      />
+                    </button>
+                  </div>
+                </label>
+              )}
+            </div>
+
+            {authMode === 'signin' && (
+              <div className="go-auth-inline-row">
+                <button className="go-auth-inline-action" onClick={onForgotPassword} type="button">
+                  Forgot password?
+                </button>
+              </div>
             )}
 
             {authMode === 'signup' && (
-              <label className="go-check-field">
-                <input
-                  checked={signUpForm.newsletterOptIn}
-                  name="newsletterOptIn"
-                  type="checkbox"
-                  onChange={onFieldChange}
-                />
-                Receive launch notes and order updates
-              </label>
+              <>
+                <div className="go-auth-separator">
+                  <span>Optional</span>
+                </div>
+
+                <label className="go-field">
+                  <span>Referral code</span>
+                  <div className="go-auth-input-wrap">
+                    <i aria-hidden="true" className="bi bi-gift-fill go-auth-input-icon" />
+                    <input
+                      name="referralCode"
+                      placeholder="Enter referral code"
+                      type="text"
+                      value={signUpForm.referralCode}
+                      onBlur={onReferralBlur}
+                      onChange={onFieldChange}
+                    />
+                  </div>
+                </label>
+
+                {(referralMessage || referralChecking) && (
+                  <div className={`go-auth-note-card ${referralTone || 'info'}`}>
+                    <i
+                      aria-hidden="true"
+                      className={`bi ${
+                        referralChecking
+                          ? 'bi-arrow-repeat'
+                          : referralTone === 'success'
+                            ? 'bi-check-circle-fill'
+                            : 'bi-info-circle-fill'
+                      }`}
+                    />
+                    <p>{referralChecking ? 'Checking referral code...' : referralMessage}</p>
+                  </div>
+                )}
+
+                <label className="go-auth-checkbox">
+                  <input
+                    checked={signUpForm.acceptTerms}
+                    name="acceptTerms"
+                    type="checkbox"
+                    onChange={onFieldChange}
+                  />
+                  <span>
+                    I agree to the <strong>Terms &amp; Conditions</strong>
+                  </span>
+                </label>
+              </>
             )}
 
             <div className="go-auth-actions">
-              <button className="go-primary-btn" disabled={submitting} type="submit">
-                {submitting ? 'Working...' : authMode === 'signin' ? 'Sign in' : 'Create account'}
+              <button className="go-primary-btn go-auth-submit" disabled={submitting} type="submit">
+                {submitting ? 'Working...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
+              </button>
+              <button
+                className="go-auth-secondary-btn"
+                onClick={() => onAuthModeChange(authMode === 'signin' ? 'signup' : 'signin')}
+                type="button"
+              >
+                {authMode === 'signin' ? 'Create free account' : 'Back to sign in'}
               </button>
             </div>
           </form>
@@ -1290,6 +1385,9 @@ export function MarketplacePage() {
   const [authMessage, setAuthMessage] = useState('')
   const [authMessageTone, setAuthMessageTone] = useState('success')
   const [authPreviewUrl, setAuthPreviewUrl] = useState('')
+  const [referralChecking, setReferralChecking] = useState(false)
+  const [referralMessage, setReferralMessage] = useState('')
+  const [referralTone, setReferralTone] = useState('info')
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
   const [logoutSubmitting, setLogoutSubmitting] = useState(false)
   const [settingsForm, setSettingsForm] = useState(() => createSettingsForm(user))
@@ -1482,6 +1580,7 @@ export function MarketplacePage() {
   useEffect(() => {
     const requestedMode = searchParams.get('mode')
     const requestedEmail = String(searchParams.get('email') || '').trim()
+    const requestedReferralCode = normalizeReferralCodeInput(searchParams.get('ref'))
     const verified = searchParams.get('verified') === '1'
 
     if (requestedMode === 'signin' || requestedMode === 'signup') {
@@ -1493,6 +1592,14 @@ export function MarketplacePage() {
         ...current,
         email: requestedEmail,
         password: verified ? '' : current.password,
+      }))
+    }
+
+    if (requestedReferralCode) {
+      setAuthMode('signup')
+      setSignUpForm((current) => ({
+        ...current,
+        referralCode: current.referralCode || requestedReferralCode,
       }))
     }
 
@@ -1975,7 +2082,12 @@ export function MarketplacePage() {
 
   const handleFieldChange = (event) => {
     const { checked, name, type, value } = event.target
-    const nextValue = type === 'checkbox' ? checked : value
+    const nextValue =
+      name === 'referralCode'
+        ? normalizeReferralCodeInput(value)
+        : type === 'checkbox'
+          ? checked
+          : value
 
     if (name === 'email' || name === 'password') {
       const updater = authMode === 'signin' ? setSignInForm : setSignUpForm
@@ -1988,14 +2100,21 @@ export function MarketplacePage() {
 
     if (
       name === 'confirmPassword' ||
+      name === 'acceptTerms' ||
       name === 'fullName' ||
       name === 'newsletterOptIn' ||
-      name === 'phoneNumber'
+      name === 'referralCode'
     ) {
       setSignUpForm((current) => ({
         ...current,
         [name]: nextValue,
       }))
+
+      if (name === 'referralCode') {
+        setReferralChecking(false)
+        setReferralMessage('')
+        setReferralTone('info')
+      }
     }
 
     if (['name', 'email', 'phone', 'country', 'city', 'address'].includes(name)) {
@@ -2004,6 +2123,42 @@ export function MarketplacePage() {
         [name]: nextValue,
       }))
     }
+  }
+
+  const handleReferralBlur = async () => {
+    if (authMode !== 'signup') {
+      return
+    }
+
+    const referralCode = normalizeReferralCodeInput(signUpForm.referralCode)
+
+    if (!referralCode) {
+      setReferralChecking(false)
+      setReferralMessage('')
+      setReferralTone('info')
+      return
+    }
+
+    setReferralChecking(true)
+
+    try {
+      const response = await api.lookupReferral(referralCode)
+      setReferralMessage(response.message || '')
+      setReferralTone(response.valid ? 'success' : 'warning')
+    } catch (error) {
+      setReferralMessage(error.message || 'Unable to validate the referral code right now.')
+      setReferralTone('warning')
+    } finally {
+      setReferralChecking(false)
+    }
+  }
+
+  const handleForgotPassword = () => {
+    setAuthMessage(
+      'Password reset is not self-service yet. Use your admin support channel or store support contact for a secure reset.',
+    )
+    setAuthMessageTone('warning')
+    setAuthPreviewUrl('')
   }
 
   const handleSettingsFieldChange = (event) => {
@@ -2055,6 +2210,12 @@ export function MarketplacePage() {
     setAuthMessage('')
     setAuthPreviewUrl('')
     setAuthMessageTone('success')
+
+    if (nextMode !== 'signup') {
+      setReferralChecking(false)
+      setReferralMessage('')
+      setReferralTone('info')
+    }
   }
 
   const handleAuthSubmit = async (event) => {
@@ -2062,10 +2223,18 @@ export function MarketplacePage() {
     setAuthMessage('')
     setAuthPreviewUrl('')
 
-    if (authMode === 'signup' && signUpForm.password !== signUpForm.confirmPassword) {
-      setAuthMessage('Passwords do not match.')
-      setAuthMessageTone('warning')
-      return
+    if (authMode === 'signup') {
+      if (signUpForm.password !== signUpForm.confirmPassword) {
+        setAuthMessage('Passwords do not match.')
+        setAuthMessageTone('warning')
+        return
+      }
+
+      if (!signUpForm.acceptTerms) {
+        setAuthMessage('Accept the terms and conditions before creating your account.')
+        setAuthMessageTone('warning')
+        return
+      }
     }
 
     setAuthSubmitting(true)
@@ -2614,12 +2783,17 @@ export function MarketplacePage() {
                 messageTone={authMessageTone}
                 onAuthModeChange={handleAuthModeChange}
                 onFieldChange={handleFieldChange}
+                onForgotPassword={handleForgotPassword}
+                onReferralBlur={handleReferralBlur}
                 onResendVerification={handleResendVerification}
                 onSettingsFieldChange={handleSettingsFieldChange}
                 onSettingsSubmit={handleSettingsSubmit}
                 onSubmit={handleAuthSubmit}
                 orders={orders}
                 previewUrl={authPreviewUrl}
+                referralChecking={referralChecking}
+                referralMessage={referralMessage}
+                referralTone={referralTone}
                 settingsForm={settingsForm}
                 settingsMessage={settingsMessage}
                 settingsSubmitting={settingsSubmitting}

@@ -172,6 +172,9 @@ export const api = {
       method: 'POST',
     }),
 
+  lookupReferral: (referralCode) =>
+    request(`/auth/referrals/${encodeURIComponent(referralCode)}`),
+
   resolveDeviceContext: (payload) =>
     request('/location/resolve', {
       body: JSON.stringify(payload),

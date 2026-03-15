@@ -792,7 +792,7 @@
 }
 
 .go-app-inner--auth {
-  max-width: 620px;
+  max-width: 560px;
 }
 
 .go-header-section {
@@ -1775,7 +1775,7 @@
 }
 
 .go-auth-shell--single {
-  max-width: 560px;
+  max-width: 480px;
   margin: 0 auto;
 }
 
@@ -1890,60 +1890,43 @@
 
 .go-auth-card {
   position: relative;
-  padding: 18px;
+  padding: 28px;
   background: white;
 }
 
 .go-auth-card--single {
   width: 100%;
-  padding: 24px 22px;
+  padding: 28px 26px;
 }
 
 .go-auth-header {
-  margin-bottom: 16px;
+  margin-bottom: 22px;
+  text-align: left;
 }
 
-.go-auth-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.go-auth-hero-mark {
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 64px;
+  line-height: 1;
 }
 
 .go-auth-header h2 {
   margin: 0;
-  font-size: clamp(30px, 5vw, 40px);
-  line-height: 0.98;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1;
   font-family: "Poppins", sans-serif;
 }
 
-.go-auth-header-badge {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, rgba(78, 5, 67, 0.12), rgba(123, 12, 99, 0.08));
-  color: var(--go-purple);
-  font-size: 26px;
-}
-
-.go-auth-header-badge.is-lock {
-  font-size: 20px;
-}
-
-.go-auth-header-badge.is-wave {
-  animation: go-wave 1.8s ease-in-out infinite;
+.go-auth-subtitle {
+  margin: 12px 0 0;
+  color: #756b75;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .go-auth-card::before {
-  content: "";
-  display: block;
-  height: 4px;
-  margin: -18px -18px 18px;
-  border-radius: 24px 24px 0 0;
-  background: linear-gradient(90deg, var(--go-purple), #7b0c63);
+  display: none;
 }
 
 .go-auth-toggle button {
@@ -1968,9 +1951,9 @@
 
 .go-auth-form {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
+  gap: 16px;
+  padding: 0;
+  border-radius: 0;
 }
 
 .go-auth-form--plain {
@@ -1986,25 +1969,50 @@
 }
 
 .go-field span {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  color: #655a64;
+  color: #564d56;
+}
+
+.go-auth-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.go-auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.go-auth-input-icon {
+  position: absolute;
+  left: 16px;
+  z-index: 1;
+  color: var(--go-purple);
+  font-size: 18px;
 }
 
 .go-field input,
 .go-field select,
 .go-field textarea {
   width: 100%;
-  border: 1px solid var(--go-border);
-  border-radius: 16px;
-  background: #fbfafb;
-  padding: 14px 16px;
+  border: 2px solid rgba(123, 12, 99, 0.88);
+  border-radius: 18px;
+  background: white;
+  padding: 16px 18px;
   outline: none;
   transition:
     border-color 180ms ease,
     background 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
+}
+
+.go-auth-input-wrap input {
+  padding-left: 48px;
+  padding-right: 52px;
 }
 
 .go-field textarea {
@@ -2021,6 +2029,20 @@
   transform: translateY(-1px);
 }
 
+.go-auth-visibility-btn {
+  position: absolute;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: #8d818d;
+  cursor: pointer;
+}
+
 .go-check-field {
   display: flex;
   align-items: center;
@@ -2031,13 +2053,127 @@
 
 .go-auth-actions,
 .go-verify-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  gap: 14px;
 }
 
 .go-auth-actions .go-primary-btn {
   width: 100%;
+}
+
+.go-auth-submit {
+  min-height: 58px;
+  border-radius: 18px;
+  font-size: 18px;
+}
+
+.go-auth-secondary-btn {
+  min-height: 54px;
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffc85a 0%, #ffb938 100%);
+  color: #231614;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.go-auth-inline-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+}
+
+.go-auth-inline-action {
+  border: 0;
+  background: transparent;
+  color: #776c77;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.go-auth-separator {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 2px;
+}
+
+.go-auth-separator::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid rgba(94, 84, 96, 0.18);
+}
+
+.go-auth-separator span {
+  position: relative;
+  z-index: 1;
+  padding: 0 12px;
+  background: white;
+  color: #9d949d;
+  font-size: 13px;
+}
+
+.go-auth-note-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #ffd38a;
+  border-radius: 16px;
+  background: #fff6e6;
+}
+
+.go-auth-note-card i {
+  margin-top: 2px;
+}
+
+.go-auth-note-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.go-auth-note-card.success {
+  border-color: #b8ead0;
+  background: #eefbf3;
+  color: #1f7a45;
+}
+
+.go-auth-note-card.warning {
+  border-color: #ffd38a;
+  background: #fff6e6;
+  color: #b36600;
+}
+
+.go-auth-note-card.info {
+  border-color: #e9c9ff;
+  background: #fbf3ff;
+  color: var(--go-purple);
+}
+
+.go-auth-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: #5f5460;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.go-auth-checkbox input {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+}
+
+.go-auth-checkbox strong {
+  color: #231a25;
 }
 
 .go-auth-note {
@@ -3199,21 +3335,12 @@
     gap: 14px;
   }
 
-  .go-auth-showcase {
-    gap: 14px;
-    padding: 20px;
-  }
-
   .go-auth-note {
     grid-template-columns: 1fr;
   }
 
   .go-auth-card {
-    padding: 16px;
-  }
-
-  .go-auth-card::before {
-    margin: -16px -16px 16px;
+    padding: 22px 18px;
   }
 
   .go-auth-actions .go-primary-btn,
@@ -3278,6 +3405,26 @@
 
   .go-app-inner--auth {
     max-width: 100%;
+  }
+
+  .go-auth-shell--single {
+    max-width: 100%;
+  }
+
+  .go-auth-card--single {
+    padding: 22px 18px;
+  }
+
+  .go-auth-hero-mark {
+    font-size: 56px;
+  }
+
+  .go-auth-subtitle {
+    font-size: 14px;
+  }
+
+  .go-auth-field-grid {
+    grid-template-columns: 1fr;
   }
 
   .go-featured-video-timer {
@@ -3532,11 +3679,17 @@
   }
 
   .go-auth-card--single {
-    padding: 18px 16px;
+    padding: 20px 16px;
   }
 
-  .go-auth-header-row {
-    align-items: flex-start;
+  .go-auth-header h2 {
+    font-size: 24px;
+  }
+
+  .go-auth-submit,
+  .go-auth-secondary-btn {
+    min-height: 50px;
+    font-size: 16px;
   }
 
   .go-auth-header h2 {
