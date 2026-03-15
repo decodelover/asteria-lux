@@ -5,10 +5,32 @@ const nodemailer = require('nodemailer');
 const { getRuntimeSettings } = require('./runtime-settings');
 
 const isProduction = process.env.NODE_ENV === 'production';
+const SMTP_CONNECTION_TIMEOUT_MS = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000);
+const SMTP_GREETING_TIMEOUT_MS = Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000);
+const SMTP_SOCKET_TIMEOUT_MS = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000);
+const MAIL_SEND_TIMEOUT_MS = Number(process.env.MAIL_SEND_TIMEOUT_MS || 15000);
 
 let cachedMailer = null;
 let cachedMailerKey = '';
 let currentMailMode = isProduction ? 'disabled' : 'preview';
+
+const withTimeout = (promise, timeoutMs, message) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 
 const getMailMode = async () => {
   const settings = await getRuntimeSettings();
@@ -57,9 +79,13 @@ const createPreviewMailer = async () => {
         pass: testAccount.pass,
         user: testAccount.user,
       },
+      connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+      dnsTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+      greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
       host: 'smtp.ethereal.email',
       port: 587,
       secure: false,
+      socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
     }),
   };
 };
@@ -81,10 +107,14 @@ const createMailer = async (settings) => {
           pass: settings.email.smtpPass,
           user: settings.email.smtpUser,
         },
+        connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+        dnsTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+        greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
         host: settings.email.smtpHost,
         port: Number(settings.email.smtpPort),
         secure:
           Boolean(settings.email.smtpSecure) || Number(settings.email.smtpPort) === 465,
+        socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
       }),
     };
   }
@@ -151,13 +181,17 @@ const sendMail = async ({ html, subject, text, to }) => {
   }
 
   try {
-    const info = await mailer.transporter.sendMail({
-      from: mailFrom,
-      html,
-      subject,
-      text,
-      to,
-    });
+    const info = await withTimeout(
+      mailer.transporter.sendMail({
+        from: mailFrom,
+        html,
+        subject,
+        text,
+        to,
+      }),
+      MAIL_SEND_TIMEOUT_MS,
+      'Mail delivery timed out.',
+    );
 
     const previewUrl = mailer.mode === 'preview' ? nodemailer.getTestMessageUrl(info) : null;
 
