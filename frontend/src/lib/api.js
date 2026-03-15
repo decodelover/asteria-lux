@@ -166,6 +166,12 @@ export const api = {
       token,
     }),
 
+  forgotPassword: (payload) =>
+    request('/auth/forgot-password', {
+      body: JSON.stringify(payload),
+      method: 'POST',
+    }),
+
   login: (payload) =>
     request('/auth/login', {
       body: JSON.stringify(payload),
@@ -199,6 +205,12 @@ export const api = {
       body: JSON.stringify(email ? { email } : {}),
       method: 'POST',
       token,
+    }),
+
+  resetPassword: (payload) =>
+    request('/auth/reset-password', {
+      body: JSON.stringify(payload),
+      method: 'POST',
     }),
 
   signUp: (payload) =>

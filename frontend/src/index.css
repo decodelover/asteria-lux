@@ -3228,6 +3228,21 @@
   line-height: 1.7;
 }
 
+.go-reset-form {
+  margin-top: 8px;
+}
+
+.go-reset-actions {
+  margin-top: 6px;
+}
+
+.go-reset-note {
+  margin: 0;
+  color: #776c77;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

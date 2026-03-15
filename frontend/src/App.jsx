@@ -4,6 +4,7 @@ import { useAdminAuth } from './hooks/useAdminAuth'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminLoginPage } from './pages/AdminLoginPage'
 import { MarketplacePage } from './pages/MarketplacePage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 
 function AdminOnlyRoute({ children }) {
@@ -84,6 +85,7 @@ function App() {
         <Route element={<Navigate replace to="/" />} path="/shop" />
         <Route element={<Navigate replace to="/" />} path="/about" />
         <Route element={<Navigate replace to="/" />} path="/contact" />
+        <Route element={<ResetPasswordPage />} path="/reset-password" />
         <Route element={<VerifyEmailPage />} path="/verify-email" />
         <Route element={<Navigate replace to="/" />} path="*" />
       </Route>

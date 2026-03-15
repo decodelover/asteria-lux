@@ -346,6 +346,37 @@ const sendVerificationEmail = async ({ email, fullName, token }) => {
   };
 };
 
+const sendPasswordResetEmail = async ({ email, fullName, token }) => {
+  const publicSiteUrl = await getPublicSiteUrl();
+  const resetUrl = `${publicSiteUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+  const delivery = await sendMail({
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #201713; line-height: 1.6;">
+        <h2>Reset your password</h2>
+        <p>Hello ${fullName},</p>
+        <p>We received a request to reset the password for your Asteria account.</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#1f1713;color:#ffffff;text-decoration:none;border-radius:999px;">
+            Create a new password
+          </a>
+        </p>
+        <p>This link expires soon for your security. If you did not request this change, you can ignore this email.</p>
+        <p>If the button does not work, open this link:</p>
+        <p>${resetUrl}</p>
+      </div>
+    `,
+    subject: 'Reset your password',
+    text: `Reset your password by opening ${resetUrl}`,
+    to: email,
+  });
+
+  return {
+    delivery,
+    resetUrl,
+  };
+};
+
 const sendOrderConfirmationEmail = async ({ items, order }) => {
   const settings = await getRuntimeSettings();
 
@@ -513,5 +544,6 @@ module.exports = {
   sendManualCustomerEmail,
   sendNewsletterConfirmationEmail,
   sendOrderConfirmationEmail,
+  sendPasswordResetEmail,
   sendVerificationEmail,
 };

@@ -27,6 +27,7 @@ const {
 const {
   comparePassword,
   generateEmailVerificationToken,
+  generatePasswordResetToken,
   hashPassword,
   hashToken,
   isUsingDefaultJwtSecret,
@@ -55,6 +56,7 @@ const {
   sendManualCustomerEmail,
   sendNewsletterConfirmationEmail,
   sendOrderConfirmationEmail,
+  sendPasswordResetEmail,
   sendVerificationEmail,
 } = require('./mailer');
 
@@ -2250,6 +2252,126 @@ api.patch(
     } finally {
       client.release();
     }
+  }),
+);
+
+api.post(
+  '/auth/forgot-password',
+  authLimiter,
+  handleAsync(async (req, res) => {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const genericMessage =
+      'If an account exists for that email address, a password reset link has been sent.';
+
+    if (!validateEmail(email)) {
+      return sendApiError(res, 400, 'A valid email address is required.');
+    }
+
+    const client = await db.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const userResult = await client.query('SELECT * FROM users WHERE email = $1 FOR UPDATE;', [email]);
+
+      if (userResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(200).json({
+          success: true,
+          message: genericMessage,
+        });
+      }
+
+      const user = userResult.rows[0];
+      const reset = generatePasswordResetToken();
+
+      await client.query(
+        `
+          UPDATE users
+          SET
+            password_reset_token_hash = $1,
+            password_reset_token_expires_at = $2,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3;
+        `,
+        [reset.tokenHash, reset.expiresAt, user.id],
+      );
+
+      await client.query('COMMIT');
+
+      const resetMail = await sendPasswordResetEmail({
+        email: user.email,
+        fullName: user.full_name,
+        token: reset.token,
+      });
+
+      if (!resetMail.delivery.delivered) {
+        console.warn(`Password reset email could not be delivered for ${user.email}: ${resetMail.delivery.error || 'Unknown email error.'}`);
+      }
+
+      res.status(200).json({
+        success: true,
+        message: genericMessage,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }),
+);
+
+api.post(
+  '/auth/reset-password',
+  authLimiter,
+  handleAsync(async (req, res) => {
+    const token = String(req.body.token || '').trim();
+    const password = String(req.body.password || '');
+
+    if (!token) {
+      return sendApiError(res, 400, 'Password reset token is required.');
+    }
+
+    if (!validatePassword(password)) {
+      return sendApiError(res, 400, 'Your new password must contain at least 8 characters.');
+    }
+
+    const tokenHash = hashToken(token);
+    const userResult = await db.query(
+      `
+        SELECT *
+        FROM users
+        WHERE password_reset_token_hash = $1
+          AND password_reset_token_expires_at > CURRENT_TIMESTAMP;
+      `,
+      [tokenHash],
+    );
+
+    if (userResult.rowCount === 0) {
+      return sendApiError(res, 400, 'That password reset link is invalid or has expired.');
+    }
+
+    const passwordHash = await hashPassword(password);
+    const updatedUserResult = await db.query(
+      `
+        UPDATE users
+        SET
+          password_hash = $1,
+          password_reset_token_hash = NULL,
+          password_reset_token_expires_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+        RETURNING *;
+      `,
+      [passwordHash, userResult.rows[0].id],
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Your password has been updated. Sign in with your new password to continue.',
+      user: mapUserRow(updatedUserResult.rows[0]),
+    });
   }),
 );
 

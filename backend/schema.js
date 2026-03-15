@@ -204,6 +204,8 @@ const ensureSchema = async () => {
       email_verified_at TIMESTAMP,
       verification_token_hash TEXT,
       verification_token_expires_at TIMESTAMP,
+      password_reset_token_hash TEXT,
+      password_reset_token_expires_at TIMESTAMP,
       last_login_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -228,6 +230,8 @@ const ensureSchema = async () => {
       ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP,
       ADD COLUMN IF NOT EXISTS verification_token_hash TEXT,
       ADD COLUMN IF NOT EXISTS verification_token_expires_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS password_reset_token_hash TEXT,
+      ADD COLUMN IF NOT EXISTS password_reset_token_expires_at TIMESTAMP,
       ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP,
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
   `);
@@ -412,6 +416,9 @@ const ensureSchema = async () => {
   await db.query('CREATE INDEX IF NOT EXISTS idx_products_featured ON products (featured);');
   await db.query('CREATE INDEX IF NOT EXISTS idx_admins_email ON admins (email);');
   await db.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);');
+  await db.query(
+    'CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users (password_reset_token_hash);',
+  );
   await db.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users (referral_code);');
   await db.query('CREATE INDEX IF NOT EXISTS idx_users_referred_by_user_id ON users (referred_by_user_id);');
   await db.query(

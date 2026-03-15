@@ -283,6 +283,7 @@ const main = async () => {
   let ownerToken;
   let primaryToken;
   let primaryUserId;
+  let primaryPassword = primaryUser.password;
   let secondaryUserId;
   let primaryReferralCode;
   let tempAdminId;
@@ -356,7 +357,7 @@ const main = async () => {
       body: {
         email: primaryUser.email,
         fullName: primaryUser.fullName,
-        password: primaryUser.password,
+        password: primaryPassword,
         acceptTerms: true,
         latitude: 6.5244,
         longitude: 3.3792,
@@ -396,9 +397,9 @@ const main = async () => {
       'Secondary signup did not store the referral code.',
     );
 
-    if (!primaryToken) {
-      const signupLogin = await request('/auth/login', {
-        body: { email: primaryUser.email, password: primaryUser.password },
+      if (!primaryToken) {
+        const signupLogin = await request('/auth/login', {
+        body: { email: primaryUser.email, password: primaryPassword },
         method: 'POST',
       });
       primaryToken = signupLogin.payload?.token;
@@ -446,11 +447,61 @@ const main = async () => {
     });
 
     const login = await request('/auth/login', {
-      body: { email: primaryUser.email, password: primaryUser.password },
+      body: { email: primaryUser.email, password: primaryPassword },
       method: 'POST',
     });
     primaryToken = login.payload?.token;
     assert(primaryToken, 'Customer login did not return a token.');
+  });
+
+  await check('Forgot-password and reset-password work', async () => {
+    await request('/auth/forgot-password', {
+      body: { email: primaryUser.email },
+      method: 'POST',
+    });
+
+    const tokenState = await db.query(
+      `
+        SELECT password_reset_token_hash, password_reset_token_expires_at
+        FROM users
+        WHERE id = $1;
+      `,
+      [primaryUserId],
+    );
+
+    assert(tokenState.rows[0]?.password_reset_token_hash, 'Forgot-password did not persist a reset token.');
+    assert(tokenState.rows[0]?.password_reset_token_expires_at, 'Forgot-password did not persist reset expiry.');
+
+    const resetToken = `audit-reset-${STAMP}`;
+    const nextPrimaryPassword = 'AuditReset123!';
+
+    await db.query(
+      `
+        UPDATE users
+        SET
+          password_reset_token_hash = $1,
+          password_reset_token_expires_at = CURRENT_TIMESTAMP + INTERVAL '1 hour'
+        WHERE id = $2;
+      `,
+      [hashToken(resetToken), primaryUserId],
+    );
+
+    await request('/auth/reset-password', {
+      body: {
+        password: nextPrimaryPassword,
+        token: resetToken,
+      },
+      method: 'POST',
+    });
+
+    const resetLogin = await request('/auth/login', {
+      body: { email: primaryUser.email, password: nextPrimaryPassword },
+      method: 'POST',
+    });
+
+    primaryPassword = nextPrimaryPassword;
+    primaryToken = resetLogin.payload?.token;
+    assert(primaryToken, 'Customer login did not succeed after resetting the password.');
   });
 
   await check('Admin auth, bootstrap, and settings work', async () => {

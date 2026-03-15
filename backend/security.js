@@ -9,6 +9,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const EMAIL_VERIFICATION_WINDOW_HOURS = Number(
   process.env.EMAIL_VERIFICATION_WINDOW_HOURS || 24,
 );
+const PASSWORD_RESET_WINDOW_HOURS = Number(process.env.PASSWORD_RESET_WINDOW_HOURS || 2);
 const isUsingDefaultJwtSecret = JWT_SECRET === DEFAULT_JWT_SECRET;
 
 if (process.env.NODE_ENV === 'production' && isUsingDefaultJwtSecret) {
@@ -53,10 +54,22 @@ const generateEmailVerificationToken = () => {
   };
 };
 
+const generatePasswordResetToken = () => {
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_WINDOW_HOURS * 60 * 60 * 1000);
+
+  return {
+    expiresAt,
+    token,
+    tokenHash: hashToken(token),
+  };
+};
+
 module.exports = {
   comparePassword,
   DEFAULT_JWT_SECRET,
   generateEmailVerificationToken,
+  generatePasswordResetToken,
   hashPassword,
   hashToken,
   isUsingDefaultJwtSecret,

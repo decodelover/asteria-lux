@@ -1581,6 +1581,7 @@ export function MarketplacePage() {
     const requestedMode = searchParams.get('mode')
     const requestedEmail = String(searchParams.get('email') || '').trim()
     const requestedReferralCode = normalizeReferralCodeInput(searchParams.get('ref'))
+    const passwordResetComplete = searchParams.get('reset') === '1'
     const verified = searchParams.get('verified') === '1'
 
     if (requestedMode === 'signin' || requestedMode === 'signup') {
@@ -1606,6 +1607,14 @@ export function MarketplacePage() {
     if (verified && !user) {
       setAuthMode('signin')
       setAuthMessage('Email verified successfully. Sign in to continue to your dashboard.')
+      setAuthMessageTone('success')
+      setAuthPreviewUrl('')
+      return
+    }
+
+    if (passwordResetComplete && !user) {
+      setAuthMode('signin')
+      setAuthMessage('Password updated successfully. Sign in with your new password to continue.')
       setAuthMessageTone('success')
       setAuthPreviewUrl('')
     }
@@ -2154,11 +2163,14 @@ export function MarketplacePage() {
   }
 
   const handleForgotPassword = () => {
-    setAuthMessage(
-      'Password reset is not self-service yet. Use your admin support channel or store support contact for a secure reset.',
-    )
-    setAuthMessageTone('warning')
-    setAuthPreviewUrl('')
+    const nextParams = new URLSearchParams()
+    const email = String(signInForm.email || '').trim().toLowerCase()
+
+    if (email) {
+      nextParams.set('email', email)
+    }
+
+    navigate(`/reset-password${nextParams.toString() ? `?${nextParams.toString()}` : ''}`)
   }
 
   const handleSettingsFieldChange = (event) => {
@@ -2199,6 +2211,7 @@ export function MarketplacePage() {
 
     nextParams.set('tab', 'account')
     nextParams.set('mode', nextMode)
+    nextParams.delete('reset')
     nextParams.delete('verified')
 
     if (nextMode === 'signup') {
