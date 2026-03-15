@@ -267,16 +267,55 @@ function FeaturedVideoShowcase({
   activeIndex,
   featuredVideos,
   onBrowseCollection,
+  onPlaybackBlockedChange,
   onSelectVideo,
   storeName,
 }) {
   const videoRef = useRef(null)
   const activeVideo = featuredVideos[activeIndex] || featuredVideos[0] || null
+  const [manualPlaybackNeeded, setManualPlaybackNeeded] = useState(false)
+
+  useEffect(() => {
+    onPlaybackBlockedChange?.(manualPlaybackNeeded)
+  }, [manualPlaybackNeeded, onPlaybackBlockedChange])
+
+  const playVideo = ({ fromUser = false } = {}) => {
+    const video = videoRef.current
+
+    if (!video) {
+      return
+    }
+
+    video.defaultMuted = true
+    video.muted = true
+    video.playsInline = true
+    video.setAttribute('playsinline', '')
+    video.setAttribute('webkit-playsinline', 'true')
+
+    const playback = video.play()
+
+    if (playback && typeof playback.then === 'function') {
+      playback
+        .then(() => {
+          setManualPlaybackNeeded(false)
+        })
+        .catch(() => {
+          if (!fromUser) {
+            setManualPlaybackNeeded(true)
+          }
+        })
+      return
+    }
+
+    setManualPlaybackNeeded(false)
+  }
 
   useEffect(() => {
     if (!activeVideo?.videoUrl) {
       return undefined
     }
+
+    setManualPlaybackNeeded(false)
 
     const video = videoRef.current
 
@@ -285,25 +324,23 @@ function FeaturedVideoShowcase({
     }
 
     const attemptPlayback = () => {
-      video.defaultMuted = true
-      video.muted = true
-      video.playsInline = true
+      playVideo()
+    }
 
-      const playback = video.play()
-
-      if (playback && typeof playback.catch === 'function') {
-        playback.catch(() => {})
-      }
+    const handlePlaying = () => {
+      setManualPlaybackNeeded(false)
     }
 
     video.load()
     attemptPlayback()
     video.addEventListener('loadeddata', attemptPlayback)
     video.addEventListener('canplay', attemptPlayback)
+    video.addEventListener('playing', handlePlaying)
 
     return () => {
       video.removeEventListener('loadeddata', attemptPlayback)
       video.removeEventListener('canplay', attemptPlayback)
+      video.removeEventListener('playing', handlePlaying)
     }
   }, [activeVideo?.videoUrl])
 
@@ -330,14 +367,27 @@ function FeaturedVideoShowcase({
               className="go-featured-video-player"
               controls={false}
               controlsList="nodownload nofullscreen noremoteplayback"
+              defaultMuted
               disablePictureInPicture
+              disableRemotePlayback
               loop
               muted
+              onClick={() => playVideo({ fromUser: true })}
               playsInline
               preload="auto"
               ref={videoRef}
               src={activeVideo.videoUrl}
             />
+            {manualPlaybackNeeded && (
+              <button
+                className="go-featured-video-play-fallback"
+                onClick={() => playVideo({ fromUser: true })}
+                type="button"
+              >
+                <i aria-hidden="true" className="bi bi-play-fill" />
+                Tap to play
+              </button>
+            )}
             <div className="go-featured-video-overlay">
               <span className="go-offer-badge">Asteria film</span>
               <p className="go-offer-eyebrow">{storeName || 'Asteria Luxury House'}</p>
@@ -1203,6 +1253,7 @@ export function MarketplacePage() {
   const [sortOrder, setSortOrder] = useState('featured')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [featuredVideoIndex, setFeaturedVideoIndex] = useState(0)
+  const [featuredVideoPlaybackBlocked, setFeaturedVideoPlaybackBlocked] = useState(false)
   const [savedIds, setSavedIds] = useState(() => getStoredFavorites())
   const [deviceContext, setDeviceContext] = useState(() =>
     createFallbackDeviceContext(getStoredDeviceContext()),
@@ -1652,7 +1703,7 @@ export function MarketplacePage() {
   }, [featuredVideos.length])
 
   useEffect(() => {
-    if (activeTab !== 'home' || featuredVideos.length === 0) {
+    if (activeTab !== 'home' || featuredVideos.length === 0 || featuredVideoPlaybackBlocked) {
       return
     }
 
@@ -1663,7 +1714,7 @@ export function MarketplacePage() {
     return () => {
       window.clearInterval(timer)
     }
-  }, [activeTab, featuredVideos.length])
+  }, [activeTab, featuredVideoPlaybackBlocked, featuredVideos.length])
 
   const filteredProducts = useMemo(() => {
     const nextProducts = allProducts.filter((product) => {
@@ -2375,6 +2426,7 @@ export function MarketplacePage() {
                     activeIndex={featuredVideoIndex}
                     featuredVideos={featuredVideos}
                     onBrowseCollection={handleBrowseCollection}
+                    onPlaybackBlockedChange={setFeaturedVideoPlaybackBlocked}
                     onSelectVideo={setFeaturedVideoIndex}
                     storeName={publicSettings.storeName}
                   />
