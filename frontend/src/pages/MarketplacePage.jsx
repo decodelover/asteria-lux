@@ -77,6 +77,31 @@ const getCategoryMeta = (category) =>
     label: category,
   }
 
+const getProductSnippet = (description, maxLength = 96) => {
+  const normalized = String(description || '').trim()
+
+  if (!normalized) {
+    return 'A closer look at this collectible is available inside the product details.'
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, maxLength).trimEnd()}...`
+}
+
+const handleInteractiveCardKeyDown = (event, onActivate) => {
+  if (event.target !== event.currentTarget) {
+    return
+  }
+
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    onActivate()
+  }
+}
+
 function CategoryIcon({ category }) {
   const strokeProps = {
     fill: 'none',
@@ -233,7 +258,7 @@ const getStoredFavorites = () => {
   }
 }
 
-function PromoCarousel({ onShopPromo, promoProducts, promoIndex, setPromoIndex }) {
+function PromoCarousel({ onCollectPromo, onOpenProduct, onShopPromo, promoProducts, promoIndex, setPromoIndex }) {
   if (promoProducts.length === 0) {
     return null
   }
@@ -253,7 +278,14 @@ function PromoCarousel({ onShopPromo, promoProducts, promoIndex, setPromoIndex }
           style={{ transform: `translateX(-${promoIndex * 100}%)` }}
         >
           {promoProducts.map((product, index) => (
-            <article key={product.id} className="go-carousel-slide">
+            <article
+              key={product.id}
+              className="go-carousel-slide go-carousel-slide--interactive"
+              onClick={() => onOpenProduct(product)}
+              onKeyDown={(event) => handleInteractiveCardKeyDown(event, () => onOpenProduct(product))}
+              role="button"
+              tabIndex={0}
+            >
               <div className="go-carousel-copy">
                 <span className="go-offer-badge">
                   {index === 0 ? 'Limited offer' : 'New arrival'}
@@ -263,7 +295,10 @@ function PromoCarousel({ onShopPromo, promoProducts, promoIndex, setPromoIndex }
                 <p>{product.description}</p>
                 <button
                   className="go-primary-btn go-primary-btn--light"
-                  onClick={onShopPromo}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onCollectPromo(product)
+                  }}
                   type="button"
                 >
                   Collect now
@@ -292,7 +327,7 @@ function PromoCarousel({ onShopPromo, promoProducts, promoIndex, setPromoIndex }
   )
 }
 
-function HighlightOffer({ onAddToCart, products }) {
+function HighlightOffer({ onAddToCart, onOpenProduct, products }) {
   const featuredCollection = products.slice(0, 2)
 
   if (featuredCollection.length === 0) {
@@ -307,13 +342,28 @@ function HighlightOffer({ onAddToCart, products }) {
 
       <div className="go-collection-grid">
         {featuredCollection.map((product) => (
-          <article key={product.id} className="go-collection-card">
+          <article
+            key={product.id}
+            className="go-collection-card"
+            onClick={() => onOpenProduct(product)}
+            onKeyDown={(event) => handleInteractiveCardKeyDown(event, () => onOpenProduct(product))}
+            role="button"
+            tabIndex={0}
+          >
             <div className="go-collection-copy">
               <p>{product.badge || product.category}</p>
               <h3>{product.name}</h3>
               <strong>{formatCurrency(product.price)}</strong>
+              <span className="go-collection-summary">{getProductSnippet(product.description, 70)}</span>
             </div>
-            <button className="go-primary-btn" onClick={() => onAddToCart(product.id)} type="button">
+            <button
+              className="go-primary-btn"
+              onClick={(event) => {
+                event.stopPropagation()
+                onAddToCart(product.id)
+              }}
+              type="button"
+            >
               Add to cart
             </button>
             <div className="go-collection-media">
@@ -326,19 +376,30 @@ function HighlightOffer({ onAddToCart, products }) {
   )
 }
 
-function ProductTile({ busy, isSaved, onAddToCart, onToggleSaved, product }) {
+function ProductTile({ busy, isSaved, onAddToCart, onOpenProduct, onToggleSaved, product }) {
   const rating = (4.6 + ((product.id % 3) * 0.1)).toFixed(1)
   const reviews = 12 + product.id * 5
   const revealDelay = `${(product.id % 6) * 55}`
 
   return (
-    <article className="go-product-card go-reveal" data-reveal data-reveal-delay={revealDelay}>
+    <article
+      className="go-product-card go-reveal"
+      data-reveal
+      data-reveal-delay={revealDelay}
+      onClick={() => onOpenProduct(product)}
+      onKeyDown={(event) => handleInteractiveCardKeyDown(event, () => onOpenProduct(product))}
+      role="button"
+      tabIndex={0}
+    >
       <div className="go-product-media">
         <img alt={product.name} className="go-product-image" src={product.imageUrl} />
         <button
           aria-label={isSaved ? 'Remove from saved' : 'Save item'}
           className={`go-heart-btn ${isSaved ? 'saved' : ''}`}
-          onClick={() => onToggleSaved(product.id)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleSaved(product.id)
+          }}
           type="button"
         >
           <i className={`bi ${isSaved ? 'bi-heart-fill' : 'bi-heart'}`} aria-hidden="true" />
@@ -352,6 +413,7 @@ function ProductTile({ busy, isSaved, onAddToCart, onToggleSaved, product }) {
       <div className="go-product-content">
         <p className="go-product-category">{product.category}</p>
         <h3 className="go-product-title">{product.name}</h3>
+        <p className="go-product-summary">{getProductSnippet(product.description, 78)}</p>
         <div className="go-product-footer">
           <div>
             <p className="go-product-price">{formatCurrency(product.price)}</p>
@@ -361,7 +423,10 @@ function ProductTile({ busy, isSaved, onAddToCart, onToggleSaved, product }) {
           <button
             className="go-plus-btn"
             disabled={busy || product.stockQuantity === 0}
-            onClick={() => onAddToCart(product.id)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onAddToCart(product.id)
+            }}
             type="button"
           >
             <i
@@ -942,6 +1007,116 @@ function SignOutSheet({ isOpen, isSubmitting, onCancel, onConfirm }) {
   )
 }
 
+function ProductDetailSheet({
+  error,
+  isCheckoutSubmitting,
+  isLoading,
+  isOpen,
+  isSaving,
+  onAddToCart,
+  onClose,
+  onProceedToCheckout,
+  product,
+}) {
+  if (!isOpen) {
+    return null
+  }
+
+  const isOutOfStock = Number(product?.stockQuantity || 0) <= 0
+
+  return (
+    <div className="go-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        aria-labelledby="go-product-detail-title"
+        aria-modal="true"
+        className="go-modal-card go-modal-card--product"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="go-modal-head">
+          <div>
+            <p>{product?.category || 'Product details'}</p>
+            <h2 id="go-product-detail-title">{product?.name || 'Loading product'}</h2>
+          </div>
+          <button aria-label="Close product details" onClick={onClose} type="button">
+            <i aria-hidden="true" className="bi bi-x-lg" />
+          </button>
+        </div>
+
+        {!product ? (
+          <div className="go-product-detail go-product-detail--empty">
+            <div className="go-empty-state go-empty-state--compact">
+              <div className="go-spinner" />
+              <p>Loading product details...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="go-product-detail">
+            <div className="go-product-detail__media">
+              <img alt={product.name} src={product.imageUrl} />
+            </div>
+
+            <div className="go-product-detail__copy">
+              <div className="go-product-detail__chips">
+                <span className="go-dashboard-chip">{product.category}</span>
+                {product.badge ? <span className="go-dashboard-chip">{product.badge}</span> : null}
+                <span className={`go-status-pill ${isOutOfStock ? 'neutral' : 'success'}`}>
+                  {isOutOfStock ? 'Sold out' : `${product.stockQuantity} ready`}
+                </span>
+              </div>
+
+              <p className="go-product-detail__price">{formatCurrency(product.price)}</p>
+              <p className="go-product-detail__description">{product.description}</p>
+
+              <div className="go-product-detail__highlights">
+                <article>
+                  <span>Availability</span>
+                  <strong>{isOutOfStock ? 'Currently unavailable' : 'Ready for delivery'}</strong>
+                </article>
+                <article>
+                  <span>Best for</span>
+                  <strong>{product.badge || 'Curated luxury collectors'}</strong>
+                </article>
+              </div>
+
+              {error ? (
+                <div className="go-inline-message warning">
+                  <p>{error}</p>
+                </div>
+              ) : null}
+
+              {isLoading ? (
+                <div className="go-inline-message success">
+                  <p>Refreshing the latest product details...</p>
+                </div>
+              ) : null}
+
+              <div className="go-product-detail__actions">
+                <button
+                  className="go-secondary-btn"
+                  disabled={isSaving || isOutOfStock}
+                  onClick={() => onAddToCart(product.id, { showAddedSheet: false })}
+                  type="button"
+                >
+                  {isSaving ? 'Adding...' : 'Add to cart'}
+                </button>
+                <button
+                  className="go-primary-btn"
+                  disabled={isCheckoutSubmitting || isOutOfStock}
+                  onClick={() => onProceedToCheckout(product)}
+                  type="button"
+                >
+                  {isCheckoutSubmitting ? 'Opening checkout...' : 'Proceed to checkout'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function MarketplacePage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -998,6 +1173,12 @@ export function MarketplacePage() {
   const [flashMessage, setFlashMessage] = useState(null)
   const [bootLoading, setBootLoading] = useState(true)
   const [recentlyAddedProduct, setRecentlyAddedProduct] = useState(null)
+  const [selectedProductId, setSelectedProductId] = useState(null)
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [productDetailOpen, setProductDetailOpen] = useState(false)
+  const [productDetailLoading, setProductDetailLoading] = useState(false)
+  const [productDetailError, setProductDetailError] = useState('')
+  const [checkoutLaunchProductId, setCheckoutLaunchProductId] = useState(null)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
@@ -1253,6 +1434,39 @@ export function MarketplacePage() {
       window.clearTimeout(timer)
     }
   }, [recentlyAddedProduct])
+
+  useEffect(() => {
+    if (!productDetailOpen || !selectedProductId) {
+      return
+    }
+
+    let ignore = false
+
+    setProductDetailLoading(true)
+    setProductDetailError('')
+
+    api
+      .getProduct(selectedProductId)
+      .then((response) => {
+        if (!ignore) {
+          setSelectedProduct(response.product)
+        }
+      })
+      .catch((error) => {
+        if (!ignore) {
+          setProductDetailError(error.message || 'Unable to load the latest product details right now.')
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setProductDetailLoading(false)
+        }
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [productDetailOpen, selectedProductId])
 
   useEffect(() => {
     if (!user || !checkoutIntent) {
@@ -1535,21 +1749,66 @@ export function MarketplacePage() {
     )
   }
 
-  const handleAddToCart = async (productId) => {
+  const handleOpenProduct = (product) => {
+    setSelectedProduct(product)
+    setSelectedProductId(product.id)
+    setProductDetailError('')
+    setProductDetailOpen(true)
+  }
+
+  const handleCloseProduct = () => {
+    setProductDetailOpen(false)
+    setProductDetailError('')
+  }
+
+  const handleAddToCart = async (productId, options = {}) => {
+    const {
+      flashText = 'Item added to cart.',
+      showAddedSheet = true,
+    } = options
+
     try {
-      await addToCart(productId)
-      setRecentlyAddedProduct(
-        allProducts.find((product) => product.id === productId) || null,
-      )
+      const response = await addToCart(productId)
+      const matchedProduct = allProducts.find((product) => product.id === productId) || selectedProduct
+
+      if (showAddedSheet) {
+        setRecentlyAddedProduct(matchedProduct || null)
+      } else {
+        setRecentlyAddedProduct(null)
+      }
+
       setFlashMessage({
-        text: 'Item added to cart.',
+        text: flashText,
         type: 'success',
       })
+      return response
     } catch (error) {
       setFlashMessage({
         text: error.message || 'Unable to update cart.',
         type: 'warning',
       })
+      return null
+    }
+  }
+
+  const handleProceedToCheckout = async (product) => {
+    setCheckoutLaunchProductId(product.id)
+
+    try {
+      const response = await handleAddToCart(product.id, {
+        flashText: 'Item added to cart. Opening checkout...',
+        showAddedSheet: false,
+      })
+
+      if (!response) {
+        return
+      }
+
+      handleCloseProduct()
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
+      handleRequestCheckout()
+    } finally {
+      setCheckoutLaunchProductId(null)
     }
   }
 
@@ -2008,6 +2267,8 @@ export function MarketplacePage() {
               <>
                 <div data-reveal data-reveal-delay="0">
                   <PromoCarousel
+                    onCollectPromo={handleProceedToCheckout}
+                    onOpenProduct={handleOpenProduct}
                     onShopPromo={() => setTab('home')}
                     promoIndex={promoIndex}
                     promoProducts={featuredProducts}
@@ -2016,7 +2277,11 @@ export function MarketplacePage() {
                 </div>
 
                 <div data-reveal data-reveal-delay="60">
-                  <HighlightOffer onAddToCart={handleAddToCart} products={featuredProducts} />
+                  <HighlightOffer
+                    onAddToCart={handleAddToCart}
+                    onOpenProduct={handleOpenProduct}
+                    products={featuredProducts}
+                  />
                 </div>
 
                 <section className="go-chip-section go-reveal" data-reveal data-reveal-delay="90">
@@ -2076,6 +2341,7 @@ export function MarketplacePage() {
                           busy={busyKey === product.id}
                           isSaved={savedIds.includes(product.id)}
                           onAddToCart={handleAddToCart}
+                          onOpenProduct={handleOpenProduct}
                           onToggleSaved={toggleSaved}
                           product={product}
                         />
@@ -2173,6 +2439,7 @@ export function MarketplacePage() {
                         busy={busyKey === product.id}
                         isSaved={savedIds.includes(product.id)}
                         onAddToCart={handleAddToCart}
+                        onOpenProduct={handleOpenProduct}
                         onToggleSaved={toggleSaved}
                         product={product}
                       />
@@ -2281,6 +2548,17 @@ export function MarketplacePage() {
         paymentConfig={paymentConfig}
         paymentMethod={checkoutMethod}
         proofFileName={checkoutProofName}
+      />
+      <ProductDetailSheet
+        error={productDetailError}
+        isCheckoutSubmitting={Boolean(selectedProduct && checkoutLaunchProductId === selectedProduct.id)}
+        isLoading={productDetailLoading}
+        isOpen={productDetailOpen}
+        isSaving={Boolean(selectedProduct && busyKey === selectedProduct.id)}
+        onAddToCart={handleAddToCart}
+        onClose={handleCloseProduct}
+        onProceedToCheckout={handleProceedToCheckout}
+        product={selectedProduct}
       />
       <SignOutSheet
         isOpen={logoutDialogOpen}

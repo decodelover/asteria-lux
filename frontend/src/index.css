@@ -1068,6 +1068,10 @@
   box-shadow: var(--go-shadow);
 }
 
+.go-carousel-slide--interactive {
+  cursor: pointer;
+}
+
 .go-carousel-copy h3 {
   margin: 8px 0;
   font-size: clamp(28px, 5vw, 40px);
@@ -1188,6 +1192,7 @@
   border-radius: 22px;
   background: white;
   box-shadow: var(--go-shadow);
+  cursor: pointer;
 }
 
 .go-collection-copy p {
@@ -1211,6 +1216,14 @@
   font-size: 16px;
   font-weight: 700;
   color: #26162f;
+}
+
+.go-collection-summary {
+  display: block;
+  margin-top: 10px;
+  color: var(--go-muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .go-collection-card .go-primary-btn {
@@ -1335,12 +1348,20 @@
   border-radius: 22px;
   background: white;
   box-shadow: var(--go-shadow);
+  cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .go-product-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 38px rgba(17, 10, 18, 0.12);
+}
+
+.go-carousel-slide--interactive:focus-visible,
+.go-collection-card:focus-visible,
+.go-product-card:focus-visible {
+  outline: 3px solid rgba(126, 24, 102, 0.28);
+  outline-offset: 3px;
 }
 
 .go-product-media {
@@ -1405,6 +1426,17 @@
   font-size: 16px;
   font-weight: 700;
   min-height: 42px;
+}
+
+.go-product-summary {
+  margin: 0 0 12px;
+  color: var(--go-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .go-product-footer {
@@ -2491,6 +2523,10 @@
   width: min(520px, 100%);
 }
 
+.go-modal-card--product {
+  width: min(920px, 100%);
+}
+
 .go-modal-head {
   display: flex;
   align-items: flex-start;
@@ -2545,6 +2581,96 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.go-product-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 22px;
+  padding: 20px;
+}
+
+.go-product-detail--empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.go-product-detail__media {
+  overflow: hidden;
+  border-radius: 28px;
+  background: #f5f0f8;
+  box-shadow: inset 0 0 0 1px rgba(78, 5, 67, 0.06);
+}
+
+.go-product-detail__media img {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  object-fit: cover;
+}
+
+.go-product-detail__copy {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.go-product-detail__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.go-product-detail__price {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 800;
+  color: #24132f;
+}
+
+.go-product-detail__description {
+  margin: 0;
+  color: #5f5461;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.go-product-detail__highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.go-product-detail__highlights article {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #f6f2f7;
+}
+
+.go-product-detail__highlights span {
+  display: block;
+  margin-bottom: 6px;
+  color: #867987;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.go-product-detail__highlights strong {
+  color: #26162f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.go-product-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.go-product-detail__actions .go-primary-btn,
+.go-product-detail__actions .go-secondary-btn {
+  flex: 1 1 220px;
 }
 
 .go-payment-methods {
@@ -3101,6 +3227,11 @@
     font-size: 14px;
   }
 
+  .go-collection-summary {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+
   .go-collection-copy strong {
     font-size: 13px;
   }
@@ -3121,6 +3252,10 @@
 
   .go-product-card {
     border-radius: 16px;
+  }
+
+  .go-product-summary {
+    font-size: 12px;
   }
 
   .go-product-image {
@@ -3241,17 +3376,37 @@
   .go-modal-head,
   .go-checkout-form,
   .go-order-success,
-  .go-confirm-sheet {
+  .go-confirm-sheet,
+  .go-product-detail {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .go-product-detail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .go-product-detail__media img {
+    min-height: 250px;
+  }
+
+  .go-product-detail__highlights {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .go-confirm-sheet__actions {
     flex-direction: column-reverse;
   }
 
+  .go-product-detail__actions {
+    flex-direction: column;
+  }
+
   .go-confirm-sheet__actions .go-primary-btn,
-  .go-confirm-sheet__actions .go-secondary-btn {
+  .go-confirm-sheet__actions .go-secondary-btn,
+  .go-product-detail__actions .go-primary-btn,
+  .go-product-detail__actions .go-secondary-btn {
     width: 100%;
   }
 

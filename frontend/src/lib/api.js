@@ -156,6 +156,8 @@ export const api = {
       query,
     }),
 
+  getProduct: (productId) => request(`/products/${productId}`),
+
   getProfile: (token) =>
     request('/auth/me', {
       token,

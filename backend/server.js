@@ -1600,6 +1600,46 @@ api.get(
 );
 
 api.get(
+  '/products/:productId',
+  handleAsync(async (req, res) => {
+    const productId = parsePositiveInt(req.params.productId);
+
+    if (!productId) {
+      return sendApiError(res, 400, 'A valid product id is required.');
+    }
+
+    const result = await db.query(
+      `
+        SELECT
+          id,
+          name,
+          description,
+          price,
+          category,
+          image_url,
+          stock_quantity,
+          badge,
+          featured,
+          created_at
+        FROM products
+        WHERE id = $1
+        LIMIT 1;
+      `,
+      [productId],
+    );
+
+    if (result.rowCount === 0) {
+      return sendApiError(res, 404, 'Product not found.');
+    }
+
+    res.status(200).json({
+      success: true,
+      product: mapProductRow(result.rows[0]),
+    });
+  }),
+);
+
+api.get(
   '/categories',
   handleAsync(async (_req, res) => {
     const result = await db.query(
@@ -2492,7 +2532,7 @@ api.post(
   requireAdminCapability('products'),
   handleAsync(async (req, res) => {
     const name = String(req.body.name || '').trim();
-    const description = String(req.body.description || '').trim();
+    const description = normalizeOptionalText(req.body.description, 2400);
     const category = String(req.body.category || '').trim();
     const imageUrl = String(req.body.imageUrl || '').trim();
     const badge = normalizeOptionalText(req.body.badge, 80);
@@ -2558,7 +2598,7 @@ api.patch(
 
     const current = existingResult.rows[0];
     const name = String(req.body.name ?? current.name).trim();
-    const description = String(req.body.description ?? current.description).trim();
+    const description = normalizeOptionalText(req.body.description ?? current.description, 2400);
     const category = String(req.body.category ?? current.category).trim();
     const imageUrl = String(req.body.imageUrl ?? current.image_url).trim();
     const badge = normalizeOptionalText(

@@ -77,6 +77,20 @@ const PRODUCT_DEFAULTS = {
   stockQuantity: '0',
 }
 
+const truncateDescription = (value, maxLength = 120) => {
+  const normalized = String(value || '').trim()
+
+  if (!normalized) {
+    return 'No description added yet.'
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, maxLength).trimEnd()}...`
+}
+
 const ADMIN_CREATE_DEFAULTS = {
   email: '',
   fullName: '',
@@ -1066,6 +1080,7 @@ export function AdminDashboardPage() {
                   <div className="min-w-0">
                     <strong className="block truncate text-sm font-semibold text-[#271535]">{product.name}</strong>
                     <p className="mt-1 truncate text-sm text-slate-500">{product.badge || 'No badge assigned'}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{truncateDescription(product.description, 110)}</p>
                   </div>
                 </div>
                 <span className="text-sm text-slate-500">{product.category}</span>
@@ -1148,7 +1163,12 @@ export function AdminDashboardPage() {
               ) : null}
 
               <Field className="sm:col-span-2" label="Description">
-                <textarea className={TEXTAREA_CLASS} name="description" required rows="4" value={productForm.description} onChange={updateProductForm} />
+                <div className="space-y-2">
+                  <textarea className={TEXTAREA_CLASS} name="description" required rows="4" value={productForm.description} onChange={updateProductForm} />
+                  <p className="text-xs leading-5 text-slate-500">
+                    This description appears inside the customer product details view, so keep it vivid, clear, and specific.
+                  </p>
+                </div>
               </Field>
 
               <div className="sm:col-span-2">
