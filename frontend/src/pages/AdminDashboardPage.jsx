@@ -77,6 +77,20 @@ const PRODUCT_DEFAULTS = {
   stockQuantity: '0',
 }
 
+const MIN_FEATURED_VIDEOS = 3
+const MAX_FEATURED_VIDEOS = 5
+
+const createFeaturedVideoDraft = (video = {}, index = 0) => ({
+  title: String(video?.title || `Featured film ${index + 1}`).trim() || `Featured film ${index + 1}`,
+  videoUrl: String(video?.videoUrl || video?.url || '').trim(),
+})
+
+const normalizeFeaturedVideos = (videos = []) =>
+  (Array.isArray(videos) ? videos : [])
+    .map((video, index) => createFeaturedVideoDraft(video, index))
+    .filter((video) => video.videoUrl)
+    .slice(0, MAX_FEATURED_VIDEOS)
+
 const truncateDescription = (value, maxLength = 120) => {
   const normalized = String(value || '').trim()
 
@@ -184,6 +198,7 @@ const createSettingsForm = (settings) => ({
     paystackSecretKey: settings?.payments?.paystackSecretKey || '',
   },
   storefront: {
+    featuredVideos: normalizeFeaturedVideos(settings?.storefront?.featuredVideos || []),
     heroHeadlines:
       settings?.storefront?.heroHeadlines?.length > 0
         ? [...settings.storefront.heroHeadlines]
@@ -409,6 +424,7 @@ export function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadingFeaturedVideoIndex, setUploadingFeaturedVideoIndex] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState('success')
@@ -634,6 +650,76 @@ export function AdminDashboardPage() {
     setSettingsForm((current) => ({ ...current, [group]: { ...current[group], [key]: value } }))
   }
 
+  const updateFeaturedVideoDraft = (index, key, value) => {
+    setSettingsForm((current) => {
+      const currentVideos = current.storefront.featuredVideos || []
+      const nextVideos = currentVideos.map((video, videoIndex) =>
+        videoIndex === index
+          ? {
+              ...video,
+              [key]: value,
+            }
+          : video,
+      )
+
+      return {
+        ...current,
+        storefront: {
+          ...current.storefront,
+          featuredVideos: nextVideos,
+        },
+      }
+    })
+  }
+
+  const addFeaturedVideoSlot = () => {
+    setSettingsForm((current) => {
+      const currentVideos = current.storefront.featuredVideos || []
+
+      if (currentVideos.length >= MAX_FEATURED_VIDEOS) {
+        return current
+      }
+
+      return {
+        ...current,
+        storefront: {
+          ...current.storefront,
+          featuredVideos: [...currentVideos, createFeaturedVideoDraft({}, currentVideos.length)],
+        },
+      }
+    })
+  }
+
+  const removeFeaturedVideoSlot = (index) => {
+    setSettingsForm((current) => ({
+      ...current,
+      storefront: {
+        ...current.storefront,
+        featuredVideos: (current.storefront.featuredVideos || []).filter(
+          (_video, videoIndex) => videoIndex !== index,
+        ),
+      },
+    }))
+  }
+
+  const buildSettingsPayload = () => {
+    const featuredVideos = normalizeFeaturedVideos(settingsForm.storefront.featuredVideos || [])
+
+    if (featuredVideos.length !== 0 && featuredVideos.length < MIN_FEATURED_VIDEOS) {
+      throw new Error(
+        `Add at least ${MIN_FEATURED_VIDEOS} featured videos before saving the homepage showcase.`,
+      )
+    }
+
+    return {
+      ...settingsForm,
+      storefront: {
+        ...settingsForm.storefront,
+        featuredVideos,
+      },
+    }
+  }
+
   const saveProduct = async (event) => {
     event.preventDefault()
 
@@ -744,6 +830,33 @@ export function AdminDashboardPage() {
       setMessageTone('warning')
     } finally {
       setUploadingImage(false)
+      event.target.value = ''
+    }
+  }
+
+  const uploadFeaturedVideo = async (index, event) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    setUploadingFeaturedVideoIndex(index)
+    setMessage('')
+
+    try {
+      const formData = new FormData()
+      formData.set('video', file)
+      const response = await api.uploadAdminFeaturedVideo(formData, token)
+
+      updateFeaturedVideoDraft(index, 'videoUrl', response.videoUrl || response.path || '')
+      setMessage(response.message || 'Featured video uploaded.')
+      setMessageTone('success')
+    } catch (error) {
+      setMessage(error.message || 'Unable to upload featured video.')
+      setMessageTone('warning')
+    } finally {
+      setUploadingFeaturedVideoIndex(null)
       event.target.value = ''
     }
   }
@@ -926,7 +1039,9 @@ export function AdminDashboardPage() {
 
     await handleAction(
       async () => {
-        await api.updateAdminSettings(settingsForm, token)
+        const payload = buildSettingsPayload()
+
+        await api.updateAdminSettings(payload, token)
         await Promise.all([refreshSettings(), refreshPaymentConfig().catch(() => {})])
         await loadAdminData()
       },
@@ -947,7 +1062,9 @@ export function AdminDashboardPage() {
     setMessage('')
 
     try {
-      await api.updateAdminSettings(settingsForm, token)
+      const payload = buildSettingsPayload()
+
+      await api.updateAdminSettings(payload, token)
       const response = await api.testAdminEmailSettings({
         payload: { to },
         token,
@@ -1880,6 +1997,145 @@ export function AdminDashboardPage() {
               />
             </Field>
           ))}
+        </div>
+      </Panel>
+
+      <Panel
+        description="Upload 3 to 5 videos for the homepage showcase. The storefront rotates one active clip every 5 seconds."
+        icon="bi-camera-reels"
+        title="Featured video showcase"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusPill
+              tone={
+                settingsForm.storefront.featuredVideos.length === 0 ||
+                settingsForm.storefront.featuredVideos.length >= MIN_FEATURED_VIDEOS
+                  ? 'success'
+                  : 'warning'
+              }
+            >
+              {settingsForm.storefront.featuredVideos.length}/5 clips ready
+            </StatusPill>
+            <p className="text-sm text-slate-500">
+              Save with zero clips to hide the showcase, or keep between {MIN_FEATURED_VIDEOS} and {MAX_FEATURED_VIDEOS} clips live.
+            </p>
+          </div>
+
+          {settingsForm.storefront.featuredVideos.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {settingsForm.storefront.featuredVideos.map((video, index) => (
+                <article
+                  key={`${video.videoUrl || 'featured-video'}-${index}`}
+                  className="rounded-[28px] border border-[#eadcf7] bg-[#fcfaff] p-4 shadow-[0_20px_60px_rgba(94,49,133,0.08)]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8c5bc7]">
+                        Clip {String(index + 1).padStart(2, '0')}
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold text-[#291436]">
+                        {video.title || `Featured film ${index + 1}`}
+                      </h3>
+                    </div>
+
+                    <button
+                      className={SECONDARY_BUTTON_CLASS}
+                      type="button"
+                      onClick={() => removeFeaturedVideoSlot(index)}
+                    >
+                      <i aria-hidden="true" className="bi bi-trash3" />
+                      <span>Remove</span>
+                    </button>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-[24px] border border-[#eadcf7] bg-[#12081b]">
+                    {video.videoUrl ? (
+                      <video
+                        className="h-56 w-full object-cover"
+                        controls
+                        muted
+                        playsInline
+                        preload="metadata"
+                        src={video.videoUrl}
+                      />
+                    ) : (
+                      <div className="flex h-56 items-center justify-center bg-[linear-gradient(145deg,#2a123e,#12081b)] px-6 text-center text-sm text-white/70">
+                        Upload a short luxury clip for this slot.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid gap-4">
+                    <Field label="Slide title">
+                      <input
+                        className={INPUT_CLASS}
+                        value={video.title}
+                        onChange={(event) =>
+                          updateFeaturedVideoDraft(index, 'title', event.target.value)
+                        }
+                      />
+                    </Field>
+
+                    <Field label="Video URL">
+                      <input
+                        className={INPUT_CLASS}
+                        placeholder="https://..."
+                        type="url"
+                        value={video.videoUrl}
+                        onChange={(event) =>
+                          updateFeaturedVideoDraft(index, 'videoUrl', event.target.value)
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <label className={SECONDARY_BUTTON_CLASS}>
+                      <input
+                        accept="video/mp4,video/webm,video/quicktime,video/x-m4v"
+                        hidden
+                        type="file"
+                        onChange={(event) => uploadFeaturedVideo(index, event)}
+                      />
+                      <i
+                        aria-hidden="true"
+                        className={`bi ${
+                          uploadingFeaturedVideoIndex === index
+                            ? 'bi-arrow-repeat animate-spin'
+                            : 'bi-cloud-arrow-up'
+                        }`}
+                      />
+                      <span>
+                        {uploadingFeaturedVideoIndex === index ? 'Uploading...' : 'Upload video'}
+                      </span>
+                    </label>
+                    <p className="self-center text-xs leading-5 text-slate-500">
+                      MP4, WEBM, or MOV up to 40MB. Videos are stored on the backend.
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              copy="No featured videos are live yet. Add clips here and the storefront will rotate them automatically."
+              icon="bi-camera-video"
+              title="No showcase clips"
+            />
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              className={PRIMARY_BUTTON_CLASS}
+              disabled={settingsForm.storefront.featuredVideos.length >= MAX_FEATURED_VIDEOS}
+              type="button"
+              onClick={addFeaturedVideoSlot}
+            >
+              <i aria-hidden="true" className="bi bi-plus-circle" />
+              <span>Add clip</span>
+            </button>
+          </div>
         </div>
       </Panel>
 

@@ -34,9 +34,13 @@ const {
 } = require('./security');
 const {
   buildPaymentConfig,
+  getPublicSiteSettings,
   getRuntimeSettings,
   isBankTransferEnabled,
   isPaystackEnabled,
+  MAX_FEATURED_VIDEO_COUNT,
+  MIN_FEATURED_VIDEO_COUNT,
+  normalizeFeaturedVideos,
   saveRuntimeSettings,
 } = require('./runtime-settings');
 const {
@@ -59,6 +63,7 @@ const FRONTEND_DIST = path.resolve(__dirname, '../frontend/dist');
 const UPLOADS_DIR = path.resolve(__dirname, 'uploads');
 const PAYMENT_PROOFS_DIR = path.join(UPLOADS_DIR, 'payment-proofs');
 const PRODUCT_IMAGES_DIR = path.join(UPLOADS_DIR, 'product-images');
+const FEATURED_VIDEOS_DIR = path.join(UPLOADS_DIR, 'featured-videos');
 const hasFrontendBuild = fs.existsSync(path.join(FRONTEND_DIST, 'index.html'));
 const allowedOrigins = new Set(
   String(process.env.FRONTEND_URL || '')
@@ -70,6 +75,7 @@ const defaultDevOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:51
 const PAYSTACK_API_BASE_URL = 'https://api.paystack.co';
 const PAYMENT_PROOF_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const PRODUCT_IMAGE_MAX_SIZE_BYTES = 4 * 1024 * 1024;
+const FEATURED_VIDEO_MAX_SIZE_BYTES = 40 * 1024 * 1024;
 const ADMIN_ROLES = new Set(['owner', 'manager', 'support']);
 const USER_ACCOUNT_STATUSES = new Set(['active', 'suspended']);
 const ORDER_STATUSES = new Set([
@@ -97,6 +103,7 @@ const NON_SPENDABLE_PAYMENT_STATUSES = new Set(['failed']);
 
 fs.mkdirSync(PAYMENT_PROOFS_DIR, { recursive: true });
 fs.mkdirSync(PRODUCT_IMAGES_DIR, { recursive: true });
+fs.mkdirSync(FEATURED_VIDEOS_DIR, { recursive: true });
 
 const normalizeSessionId = (value) => {
   const normalized = String(value || '').trim();
@@ -122,6 +129,8 @@ const normalizeOptionalText = (value, maxLength = 255) => {
 
   return normalized.slice(0, maxLength);
 };
+
+const hasOwn = (input, key) => Boolean(input) && Object.prototype.hasOwnProperty.call(input, key);
 
 const normalizeEnumValue = (value, allowedValues, fallback = '') => {
   const normalized = String(value ?? '').trim().toLowerCase();
@@ -175,6 +184,41 @@ const parseOptionalDate = (value) => {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const validateRuntimeSettingsPayload = (payload = {}) => {
+  if (!payload || typeof payload !== 'object' || !payload.storefront || typeof payload.storefront !== 'object') {
+    return null;
+  }
+
+  if (!hasOwn(payload.storefront, 'featuredVideos')) {
+    return null;
+  }
+
+  const { featuredVideos } = payload.storefront;
+
+  if (!Array.isArray(featuredVideos)) {
+    return 'Featured videos must be sent as a list.';
+  }
+
+  if (featuredVideos.length === 0) {
+    return null;
+  }
+
+  if (
+    featuredVideos.length < MIN_FEATURED_VIDEO_COUNT ||
+    featuredVideos.length > MAX_FEATURED_VIDEO_COUNT
+  ) {
+    return `Add between ${MIN_FEATURED_VIDEO_COUNT} and ${MAX_FEATURED_VIDEO_COUNT} featured videos for the homepage showcase.`;
+  }
+
+  const normalizedVideos = normalizeFeaturedVideos(featuredVideos, []);
+
+  if (normalizedVideos.length !== featuredVideos.length) {
+    return 'Each featured video entry needs a valid uploaded video or video URL.';
+  }
+
+  return null;
 };
 
 const createPaymentReference = (prefix) =>
@@ -500,6 +544,39 @@ const productImageUpload = multer({
     filename: (_req, file, callback) => {
       const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
       const baseName = sanitizeFilename(path.basename(file.originalname || 'product', extension));
+      callback(null, `${Date.now()}-${randomUUID().split('-')[0]}-${baseName}${extension}`);
+    },
+  }),
+});
+
+const featuredVideoUpload = multer({
+  fileFilter: (_req, file, callback) => {
+    const allowedTypes = new Set([
+      'video/mp4',
+      'video/quicktime',
+      'video/webm',
+      'video/x-m4v',
+    ]);
+
+    if (!allowedTypes.has(String(file.mimetype || '').toLowerCase())) {
+      const error = new Error('Only MP4, WEBM, or MOV featured videos are allowed.');
+      error.status = 400;
+      callback(error);
+      return;
+    }
+
+    callback(null, true);
+  },
+  limits: {
+    fileSize: FEATURED_VIDEO_MAX_SIZE_BYTES,
+  },
+  storage: multer.diskStorage({
+    destination: (_req, _file, callback) => {
+      callback(null, FEATURED_VIDEOS_DIR);
+    },
+    filename: (_req, file, callback) => {
+      const extension = path.extname(file.originalname || '').toLowerCase() || '.mp4';
+      const baseName = sanitizeFilename(path.basename(file.originalname || 'featured-video', extension));
       callback(null, `${Date.now()}-${randomUUID().split('-')[0]}-${baseName}${extension}`);
     },
   }),
@@ -1507,16 +1584,10 @@ api.get(
 api.get(
   '/settings/public',
   handleAsync(async (_req, res) => {
-    const settings = await getRuntimeSettings();
+    const settings = await getPublicSiteSettings();
 
     res.status(200).json({
-      settings: {
-        heroHeadlines: settings.storefront.heroHeadlines,
-        storeName: settings.brand.storeName,
-        supportEmail: settings.brand.supportEmail || settings.email.supportEmail,
-        supportPhone: settings.brand.supportPhone,
-        whatsappNumber: settings.brand.whatsappNumber,
-      },
+      settings,
       success: true,
     });
   }),
@@ -2334,6 +2405,28 @@ api.post(
 );
 
 api.post(
+  '/admin/uploads/featured-video',
+  authLimiter,
+  requireAdmin,
+  requireAdminCapability('settings'),
+  featuredVideoUpload.single('video'),
+  handleAsync(async (req, res) => {
+    if (!req.file) {
+      return sendApiError(res, 400, 'A featured video file is required.');
+    }
+
+    const assetPath = `/uploads/featured-videos/${req.file.filename}`;
+
+    res.status(201).json({
+      message: 'Featured video uploaded successfully.',
+      path: assetPath,
+      success: true,
+      videoUrl: buildPublicAssetUrl(req, assetPath),
+    });
+  }),
+);
+
+api.post(
   '/admin/admins',
   authLimiter,
   requireAdmin,
@@ -2476,6 +2569,12 @@ api.put(
   requireAdmin,
   requireAdminCapability('settings'),
   handleAsync(async (req, res) => {
+    const validationError = validateRuntimeSettingsPayload(req.body || {});
+
+    if (validationError) {
+      return sendApiError(res, 400, validationError);
+    }
+
     const settings = await saveRuntimeSettings(req.body || {}, req.admin.id);
 
     res.status(200).json({
@@ -3858,13 +3957,16 @@ app.use((error, req, res, _next) => {
 
   if (error instanceof multer.MulterError) {
     const isProductImageUpload = String(req.path || '').includes('/admin/uploads/product-image');
+    const isFeaturedVideoUpload = String(req.path || '').includes('/admin/uploads/featured-video');
     return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({
       success: false,
       message:
         error.code === 'LIMIT_FILE_SIZE'
           ? isProductImageUpload
             ? `Product images must be ${Math.round(PRODUCT_IMAGE_MAX_SIZE_BYTES / (1024 * 1024))}MB or smaller.`
-            : `Proof uploads must be ${Math.round(PAYMENT_PROOF_MAX_SIZE_BYTES / (1024 * 1024))}MB or smaller.`
+            : isFeaturedVideoUpload
+              ? `Featured videos must be ${Math.round(FEATURED_VIDEO_MAX_SIZE_BYTES / (1024 * 1024))}MB or smaller.`
+              : `Proof uploads must be ${Math.round(PAYMENT_PROOF_MAX_SIZE_BYTES / (1024 * 1024))}MB or smaller.`
           : error.message,
     });
   }

@@ -4,6 +4,8 @@ const db = require('./db');
 
 const DEFAULT_PORT = Number(process.env.PORT || 5000);
 const EMAIL_PROVIDERS = new Set(['auto', 'disabled', 'smtp', 'brevo_api']);
+const MIN_FEATURED_VIDEO_COUNT = 3;
+const MAX_FEATURED_VIDEO_COUNT = 5;
 
 const parseBoolean = (value, fallback = false) => {
   if (typeof value === 'boolean') {
@@ -68,6 +70,54 @@ const normalizeHeadlines = (value, fallback) => {
   return headlines.length > 0 ? headlines : fallback;
 };
 
+const normalizeFeaturedVideos = (value, fallback = []) => {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const videos = value
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const videoUrl = normalizeOptionalText(item, 255);
+
+        if (!videoUrl) {
+          return null;
+        }
+
+        return {
+          title: `Featured film ${index + 1}`,
+          videoUrl,
+        };
+      }
+
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const videoUrl = normalizeOptionalText(item.videoUrl || item.url, 255);
+
+      if (!videoUrl) {
+        return null;
+      }
+
+      return {
+        title: normalizeText(item.title, 80, `Featured film ${index + 1}`),
+        videoUrl,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, MAX_FEATURED_VIDEO_COUNT);
+
+  if (
+    videos.length !== 0 &&
+    (videos.length < MIN_FEATURED_VIDEO_COUNT || videos.length > MAX_FEATURED_VIDEO_COUNT)
+  ) {
+    return fallback;
+  }
+
+  return videos;
+};
+
 const createDefaultSettings = () => ({
   brand: {
     storeName: normalizeText(process.env.STORE_NAME, 120, 'Asteria Luxury House'),
@@ -79,6 +129,7 @@ const createDefaultSettings = () => ({
     whatsappNumber: normalizeOptionalText(process.env.WHATSAPP_NUMBER, 32),
   },
   storefront: {
+    featuredVideos: [],
     heroHeadlines: [
       'What would you love to collect today?',
       'Discover signature watches, rings, and rare jewelry.',
@@ -144,6 +195,7 @@ const normalizeGroup = (key, input = {}, defaults = createDefaultSettings()[key]
       };
     case 'storefront':
       return {
+        featuredVideos: normalizeFeaturedVideos(input.featuredVideos, defaults.featuredVideos),
         heroHeadlines: normalizeHeadlines(input.heroHeadlines, defaults.heroHeadlines),
       };
     case 'payments':
@@ -266,6 +318,7 @@ const getPublicSiteSettings = async (client = db) => {
   const settings = await getRuntimeSettings(client);
 
   return {
+    featuredVideos: settings.storefront.featuredVideos,
     heroHeadlines: settings.storefront.heroHeadlines,
     storeName: settings.brand.storeName,
     supportEmail: settings.brand.supportEmail || settings.email.supportEmail,
@@ -281,6 +334,9 @@ module.exports = {
   getRuntimeSettings,
   isBankTransferEnabled,
   isPaystackEnabled,
+  MAX_FEATURED_VIDEO_COUNT,
+  MIN_FEATURED_VIDEO_COUNT,
+  normalizeFeaturedVideos,
   normalizeGroup,
   saveRuntimeSettings,
 };

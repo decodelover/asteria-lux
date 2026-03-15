@@ -41,6 +41,7 @@ const TYPING_HEADLINES = [
   'Discover signature watches, rings, and rare jewelry.',
   'Curated luxury pieces, delivered with a smoother experience.',
 ]
+const FEATURED_VIDEO_ROTATION_MS = 5000
 
 const CATEGORY_META = {
   All: {
@@ -90,6 +91,9 @@ const getProductSnippet = (description, maxLength = 96) => {
 
   return `${normalized.slice(0, maxLength).trimEnd()}...`
 }
+
+const getFeaturedVideoTitle = (video, index) =>
+  String(video?.title || `Featured film ${index + 1}`).trim() || `Featured film ${index + 1}`
 
 const handleInteractiveCardKeyDown = (event, onActivate) => {
   if (event.target !== event.currentTarget) {
@@ -258,67 +262,83 @@ const getStoredFavorites = () => {
   }
 }
 
-function PromoCarousel({ onCollectPromo, onOpenProduct, onShopPromo, promoProducts, promoIndex, setPromoIndex }) {
-  if (promoProducts.length === 0) {
+function FeaturedVideoShowcase({
+  activeIndex,
+  featuredVideos,
+  onBrowseCollection,
+  onSelectVideo,
+  storeName,
+}) {
+  if (featuredVideos.length === 0) {
     return null
   }
 
+  const activeVideo = featuredVideos[activeIndex] || featuredVideos[0]
+
   return (
-    <section className="go-carousel-section">
+    <section className="go-featured-video-section">
       <div className="go-section-head">
-        <h2>Featured drops</h2>
-        <button className="go-text-link" onClick={onShopPromo} type="button">
-          See all
-        </button>
+        <div>
+          <h2>Featured edit</h2>
+          <p className="go-featured-video-kicker">Three to five clips. One luxury story in motion.</p>
+        </div>
+        <span className="go-featured-video-timer">5s slideshow</span>
       </div>
 
-      <div className="go-carousel-shell">
-        <div
-          className="go-carousel-track"
-          style={{ transform: `translateX(-${promoIndex * 100}%)` }}
-        >
-          {promoProducts.map((product, index) => (
-            <article
-              key={product.id}
-              className="go-carousel-slide go-carousel-slide--interactive"
-              onClick={() => onOpenProduct(product)}
-              onKeyDown={(event) => handleInteractiveCardKeyDown(event, () => onOpenProduct(product))}
-              role="button"
-              tabIndex={0}
+      <div className="go-featured-video-grid">
+        <article className="go-featured-video-stage">
+          <div className="go-featured-video-media">
+            <video
+              key={activeVideo.videoUrl}
+              autoPlay
+              className="go-featured-video-player"
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              src={activeVideo.videoUrl}
+            />
+            <div className="go-featured-video-overlay">
+              <span className="go-offer-badge">Asteria film</span>
+              <p className="go-offer-eyebrow">{storeName || 'Asteria Luxury House'}</p>
+              <h3>{getFeaturedVideoTitle(activeVideo, activeIndex)}</h3>
+              <p>
+                A moving look at the pieces, finish, and atmosphere behind today&apos;s standout edit.
+              </p>
+              <button className="go-primary-btn go-primary-btn--light" onClick={onBrowseCollection} type="button">
+                Browse collection
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <div className="go-featured-video-rail">
+          {featuredVideos.map((video, index) => (
+            <button
+              key={`${video.videoUrl}-${index}`}
+              className={`go-featured-video-card ${activeIndex === index ? 'active' : ''}`}
+              onClick={() => onSelectVideo(index)}
+              type="button"
             >
-              <div className="go-carousel-copy">
-                <span className="go-offer-badge">
-                  {index === 0 ? 'Limited offer' : 'New arrival'}
-                </span>
-                <p className="go-offer-eyebrow">{product.category}</p>
-                <h3>{product.name}</h3>
-                <p>{product.description}</p>
-                <button
-                  className="go-primary-btn go-primary-btn--light"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onCollectPromo(product)
-                  }}
-                  type="button"
-                >
-                  Collect now
-                </button>
-              </div>
-              <div className="go-carousel-image-wrap">
-                <img alt={product.name} className="go-carousel-image" src={product.imageUrl} />
-              </div>
-            </article>
+              <span className="go-featured-video-card__index">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="go-featured-video-card__copy">
+                <strong>{getFeaturedVideoTitle(video, index)}</strong>
+                <span>{activeIndex === index ? 'Now showing' : 'Up next in the slideshow'}</span>
+              </span>
+            </button>
           ))}
         </div>
       </div>
 
       <div className="go-indicators">
-        {promoProducts.map((product, index) => (
+        {featuredVideos.map((video, index) => (
           <button
-            key={product.id}
-            aria-label={`View promo ${index + 1}`}
-            className={`go-indicator ${promoIndex === index ? 'active' : ''}`}
-            onClick={() => setPromoIndex(index)}
+            key={`${video.videoUrl}-${index}`}
+            aria-label={`View featured video ${index + 1}`}
+            className={`go-indicator ${activeIndex === index ? 'active' : ''}`}
+            onClick={() => onSelectVideo(index)}
             type="button"
           />
         ))}
@@ -1159,7 +1179,7 @@ export function MarketplacePage() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [sortOrder, setSortOrder] = useState('featured')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
-  const [promoIndex, setPromoIndex] = useState(0)
+  const [featuredVideoIndex, setFeaturedVideoIndex] = useState(0)
   const [savedIds, setSavedIds] = useState(() => getStoredFavorites())
   const [deviceContext, setDeviceContext] = useState(() =>
     createFallbackDeviceContext(getStoredDeviceContext()),
@@ -1389,25 +1409,6 @@ export function MarketplacePage() {
   }, [searchParams, user])
 
   useEffect(() => {
-    if (activeTab !== 'home') {
-      return
-    }
-
-    const featuredCount = Math.max(
-      1,
-      Math.min(3, allProducts.filter((product) => product.featured).length || 1),
-    )
-
-    const timer = window.setInterval(() => {
-      setPromoIndex((current) => (current + 1) % featuredCount)
-    }, 5000)
-
-    return () => {
-      window.clearInterval(timer)
-    }
-  }, [activeTab, allProducts])
-
-  useEffect(() => {
     if (!flashMessage) {
       return
     }
@@ -1584,10 +1585,40 @@ export function MarketplacePage() {
 
   const greetingName = user?.fullName?.split(' ')?.[0] || 'there'
 
+  const featuredVideos = useMemo(
+    () =>
+      Array.isArray(publicSettings.featuredVideos)
+        ? publicSettings.featuredVideos
+            .filter((video) => String(video?.videoUrl || '').trim())
+            .slice(0, 5)
+        : [],
+    [publicSettings.featuredVideos],
+  )
+
   const featuredProducts = useMemo(() => {
     const featured = allProducts.filter((product) => product.featured)
     return (featured.length > 0 ? featured : allProducts).slice(0, 3)
   }, [allProducts])
+
+  useEffect(() => {
+    setFeaturedVideoIndex((current) =>
+      featuredVideos.length > 0 ? current % featuredVideos.length : 0,
+    )
+  }, [featuredVideos.length])
+
+  useEffect(() => {
+    if (activeTab !== 'home' || featuredVideos.length === 0) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setFeaturedVideoIndex((current) => (current + 1) % featuredVideos.length)
+    }, FEATURED_VIDEO_ROTATION_MS)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [activeTab, featuredVideos.length])
 
   const filteredProducts = useMemo(() => {
     const nextProducts = allProducts.filter((product) => {
@@ -1739,6 +1770,18 @@ export function MarketplacePage() {
   const handleSortChange = (nextSort) => {
     setSortOrder(nextSort)
     setSortMenuOpen(false)
+  }
+
+  const handleBrowseCollection = () => {
+    setSelectedCategory('All')
+    setSearchInput('')
+
+    if (typeof document !== 'undefined') {
+      document.getElementById('marketplace-picks')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }
   }
 
   const toggleSaved = (productId) => {
@@ -2266,13 +2309,12 @@ export function MarketplacePage() {
             {activeTab === 'home' && (
               <>
                 <div data-reveal data-reveal-delay="0">
-                  <PromoCarousel
-                    onCollectPromo={handleProceedToCheckout}
-                    onOpenProduct={handleOpenProduct}
-                    onShopPromo={() => setTab('home')}
-                    promoIndex={promoIndex}
-                    promoProducts={featuredProducts}
-                    setPromoIndex={setPromoIndex}
+                  <FeaturedVideoShowcase
+                    activeIndex={featuredVideoIndex}
+                    featuredVideos={featuredVideos}
+                    onBrowseCollection={handleBrowseCollection}
+                    onSelectVideo={setFeaturedVideoIndex}
+                    storeName={publicSettings.storeName}
                   />
                 </div>
 
@@ -2310,7 +2352,7 @@ export function MarketplacePage() {
                   </div>
                 </section>
 
-                <section className="go-reveal" data-reveal data-reveal-delay="120">
+                <section className="go-reveal" data-reveal data-reveal-delay="120" id="marketplace-picks">
                   <div className="go-section-head">
                     <h2>Our picks</h2>
                     <button

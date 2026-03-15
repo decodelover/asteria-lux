@@ -262,6 +262,13 @@ export const api = {
       token,
     }),
 
+  uploadAdminFeaturedVideo: (formData, token) =>
+    request('/admin/uploads/featured-video', {
+      body: formData,
+      method: 'POST',
+      token,
+    }),
+
   updateSettings: (payload, token) =>
     request('/auth/settings', {
       body: JSON.stringify(payload),

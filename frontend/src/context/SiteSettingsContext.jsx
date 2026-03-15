@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { SiteSettingsContext } from './site-settings-context'
 
 const fallbackSettings = {
+  featuredVideos: [],
   heroHeadlines: [],
   storeName: 'Asteria Luxury House',
   supportEmail: '',
