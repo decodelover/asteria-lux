@@ -1,4 +1,4 @@
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AccountDashboard } from '../components/AccountDashboard'
 import { useAuth } from '../hooks/useAuth'
@@ -270,11 +270,43 @@ function FeaturedVideoShowcase({
   onSelectVideo,
   storeName,
 }) {
+  const videoRef = useRef(null)
+
   if (featuredVideos.length === 0) {
     return null
   }
 
   const activeVideo = featuredVideos[activeIndex] || featuredVideos[0]
+
+  useEffect(() => {
+    const video = videoRef.current
+
+    if (!video) {
+      return undefined
+    }
+
+    const attemptPlayback = () => {
+      video.defaultMuted = true
+      video.muted = true
+      video.playsInline = true
+
+      const playback = video.play()
+
+      if (playback && typeof playback.catch === 'function') {
+        playback.catch(() => {})
+      }
+    }
+
+    video.load()
+    attemptPlayback()
+    video.addEventListener('loadeddata', attemptPlayback)
+    video.addEventListener('canplay', attemptPlayback)
+
+    return () => {
+      video.removeEventListener('loadeddata', attemptPlayback)
+      video.removeEventListener('canplay', attemptPlayback)
+    }
+  }, [activeVideo.videoUrl])
 
   return (
     <section className="go-featured-video-section">
@@ -293,10 +325,14 @@ function FeaturedVideoShowcase({
               key={activeVideo.videoUrl}
               autoPlay
               className="go-featured-video-player"
+              controls={false}
+              controlsList="nodownload nofullscreen noremoteplayback"
+              disablePictureInPicture
               loop
               muted
               playsInline
-              preload="metadata"
+              preload="auto"
+              ref={videoRef}
               src={activeVideo.videoUrl}
             />
             <div className="go-featured-video-overlay">
