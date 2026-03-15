@@ -1330,7 +1330,7 @@ export function MarketplacePage() {
     return () => {
       observer.disconnect()
     }
-  }, [activeTab, filteredProducts.length, cart.items.length, savedProducts.length])
+  }, [activeTab, authMode, Boolean(user), filteredProducts.length, cart.items.length, orders.length, savedProducts.length])
 
   const setTab = (tab) => {
     if (tab === 'home') {
