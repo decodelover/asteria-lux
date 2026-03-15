@@ -27,6 +27,7 @@ const {
   generateEmailVerificationToken,
   hashPassword,
   hashToken,
+  isUsingDefaultJwtSecret,
   signAdminToken,
   signAuthToken,
   verifyAuthToken,
@@ -70,6 +71,16 @@ const PAYSTACK_API_BASE_URL = 'https://api.paystack.co';
 const PAYMENT_PROOF_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const PRODUCT_IMAGE_MAX_SIZE_BYTES = 4 * 1024 * 1024;
 const ADMIN_ROLES = new Set(['owner', 'manager', 'support']);
+const USER_ACCOUNT_STATUSES = new Set(['active', 'suspended']);
+const ORDER_STATUSES = new Set([
+  'awaiting_payment_review',
+  'confirmed',
+  'processing',
+  'shipped',
+  'delivered',
+  'cancelled',
+]);
+const PAYMENT_STATUSES = new Set(['pending', 'proof_submitted', 'paid', 'rejected', 'failed']);
 const ADMIN_ROLE_CAPABILITIES = {
   owner: new Set(['overview', 'products', 'orders', 'users', 'inbox', 'settings', 'team']),
   manager: new Set(['overview', 'products', 'orders', 'users', 'inbox']),
@@ -110,6 +121,16 @@ const normalizeOptionalText = (value, maxLength = 255) => {
   }
 
   return normalized.slice(0, maxLength);
+};
+
+const normalizeEnumValue = (value, allowedValues, fallback = '') => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+
+  if (allowedValues.has(normalized)) {
+    return normalized;
+  }
+
+  return fallback;
 };
 
 const normalizePhoneNumber = (value) =>
@@ -305,6 +326,55 @@ const getFallbackLocationLabel = (deviceContext) => {
   }
 
   return null;
+};
+
+const buildReadinessReport = ({ emailMode, settings }) => {
+  const warnings = [];
+  const appBaseUrl = String(settings?.email?.appBaseUrl || '').trim();
+  const backendPublicUrl = String(process.env.BACKEND_PUBLIC_URL || '').trim();
+  const frontendUrl = String(process.env.FRONTEND_URL || '').trim();
+  const isLocalhostUrl = (value) => /localhost|127\.0\.0\.1/i.test(String(value || ''));
+
+  if (isUsingDefaultJwtSecret) {
+    warnings.push('JWT_SECRET is still using the development fallback and must be changed before production deployment.');
+  }
+
+  if (!appBaseUrl || isLocalhostUrl(appBaseUrl)) {
+    warnings.push('APP_BASE_URL or runtime email.appBaseUrl still points to a local address, so verification links will not be correct on a live site.');
+  }
+
+  if (!hasFrontendBuild && !frontendUrl) {
+    warnings.push('FRONTEND_URL is not set and no frontend build is present for backend hosting, so a separate production frontend would fail CORS requests.');
+  }
+
+  if (frontendUrl && isLocalhostUrl(frontendUrl)) {
+    warnings.push('FRONTEND_URL still points to localhost and should be replaced with the live frontend domain.');
+  }
+
+  if (backendPublicUrl && isLocalhostUrl(backendPublicUrl)) {
+    warnings.push('BACKEND_PUBLIC_URL still points to localhost and should be replaced with the live API domain.');
+  }
+
+  if (emailMode !== 'smtp') {
+    warnings.push('SMTP is not configured, so verification and order emails will not reach real inboxes in production.');
+  }
+
+  if (!isPaystackEnabled(settings) && !isBankTransferEnabled(settings)) {
+    warnings.push('No live payment method is fully configured. Enable Paystack or complete bank transfer details before launch.');
+  }
+
+  if (!settings?.brand?.supportEmail && !settings?.email?.supportEmail) {
+    warnings.push('Support email is not configured, so admin notifications and customer contact routing may be incomplete.');
+  }
+
+  if (!settings?.brand?.whatsappNumber) {
+    warnings.push('WhatsApp contact is not configured for the storefront floating action button.');
+  }
+
+  return {
+    ready: warnings.length === 0,
+    warnings,
+  };
 };
 
 const finalizeDeviceContext = async (body = {}) => {
@@ -1420,11 +1490,13 @@ api.get(
     await db.testConnection();
     const settings = await getRuntimeSettings();
     const emailMode = await getMailMode();
+    const readiness = buildReadinessReport({ emailMode, settings });
 
     res.status(200).json({
       emailConfigured: emailMode === 'smtp',
       emailMode,
       paymentConfig: buildPaymentConfig(settings),
+      readiness,
       success: true,
       message: 'Luxury Store API is healthy.',
       timestamp: new Date().toISOString(),
@@ -1798,6 +1870,10 @@ api.post(
 
     if (!passwordMatches) {
       return sendApiError(res, 401, 'Invalid email or password.');
+    }
+
+    if (normalizeEnumValue(user.account_status, USER_ACCOUNT_STATUSES, 'active') !== 'active') {
+      return sendApiError(res, 403, 'This account is currently suspended.');
     }
 
     const updatedUserResult = await db.query(
@@ -2534,9 +2610,20 @@ api.patch(
     }
 
     const current = orderResult.rows[0];
-    const status = normalizeOptionalText(req.body.status, 40) || current.status;
-    const paymentStatus =
-      normalizeOptionalText(req.body.paymentStatus, 40) || current.payment_status;
+    const currentStatus = normalizeEnumValue(current.status, ORDER_STATUSES, 'confirmed');
+    const currentPaymentStatus = normalizeEnumValue(
+      current.payment_status,
+      PAYMENT_STATUSES,
+      'pending',
+    );
+    const status = normalizeEnumValue(
+      req.body.status === undefined ? currentStatus : req.body.status,
+      ORDER_STATUSES,
+    );
+    const paymentStatus = normalizeEnumValue(
+      req.body.paymentStatus === undefined ? currentPaymentStatus : req.body.paymentStatus,
+      PAYMENT_STATUSES,
+    );
     const adminNote = normalizeOptionalText(req.body.adminNote ?? current.admin_note, 1200) || null;
     const paymentReviewNote =
       normalizeOptionalText(req.body.paymentReviewNote ?? current.payment_review_note, 1200) ||
@@ -2563,8 +2650,35 @@ api.patch(
         : current.shipped_at;
     const explicitTrackingEventMessage = normalizeOptionalText(req.body.trackingEventMessage, 600);
     const trackingEventLocation = normalizeOptionalText(req.body.trackingEventLocation, 180) || null;
-    const trackingEventStatus = normalizeOptionalText(req.body.trackingEventStatus, 40) || status;
+    const trackingEventStatus = normalizeEnumValue(
+      req.body.trackingEventStatus === undefined ? status : req.body.trackingEventStatus,
+      ORDER_STATUSES,
+    );
     let trackingEventMessage = explicitTrackingEventMessage;
+
+    if (!status) {
+      return sendApiError(
+        res,
+        400,
+        `Order status must be one of: ${Array.from(ORDER_STATUSES).join(', ')}.`,
+      );
+    }
+
+    if (!paymentStatus) {
+      return sendApiError(
+        res,
+        400,
+        `Payment status must be one of: ${Array.from(PAYMENT_STATUSES).join(', ')}.`,
+      );
+    }
+
+    if (!trackingEventStatus) {
+      return sendApiError(
+        res,
+        400,
+        `Tracking event status must be one of: ${Array.from(ORDER_STATUSES).join(', ')}.`,
+      );
+    }
 
     if (!trackingEventMessage) {
       if (status !== current.status) {
@@ -2741,8 +2855,15 @@ api.patch(
     }
 
     const current = userResult.rows[0];
-    const accountStatus =
-      normalizeOptionalText(req.body.accountStatus, 20) || current.account_status || 'active';
+    const currentAccountStatus = normalizeEnumValue(
+      current.account_status,
+      USER_ACCOUNT_STATUSES,
+      'active',
+    );
+    const accountStatus = normalizeEnumValue(
+      req.body.accountStatus === undefined ? currentAccountStatus : req.body.accountStatus,
+      USER_ACCOUNT_STATUSES,
+    );
     const fullName = String(req.body.fullName ?? current.full_name).trim();
     const newsletterOptIn =
       req.body.newsletterOptIn === undefined
@@ -2756,6 +2877,10 @@ api.patch(
 
     if (!fullName) {
       return sendApiError(res, 400, 'Full name is required.');
+    }
+
+    if (!accountStatus) {
+      return sendApiError(res, 400, 'Account status must be either active or suspended.');
     }
 
     const updatedResult = await db.query(
@@ -3594,8 +3719,26 @@ api.get(
       return sendApiError(res, 404, 'Order not found.');
     }
 
-    const [order] = await attachTrackingEventsToOrders([mapOrderRow(orderResult.rows[0])], db);
-    const items = await getOrderItems(orderResult.rows[0].id, db);
+    const orderRow = orderResult.rows[0];
+    const authenticatedUser = await resolveAuthenticatedUser(req);
+    const requestedEmail = String(req.query.email || '').trim().toLowerCase();
+    const customerEmail = String(orderRow.customer_email || '').trim().toLowerCase();
+    const isOrderOwner =
+      Boolean(authenticatedUser) &&
+      (Number(authenticatedUser.id) === Number(orderRow.user_id) ||
+        String(authenticatedUser.email || '').trim().toLowerCase() === customerEmail);
+    const hasMatchingEmail = validateEmail(requestedEmail) && requestedEmail === customerEmail;
+
+    if (!isOrderOwner && !hasMatchingEmail) {
+      return sendApiError(
+        res,
+        403,
+        'Sign in or provide the email used for the order to view tracking details.',
+      );
+    }
+
+    const [order] = await attachTrackingEventsToOrders([mapOrderRow(orderRow)], db);
+    const items = await getOrderItems(orderRow.id, db);
 
     res.status(200).json({
       success: true,

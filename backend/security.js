@@ -3,11 +3,17 @@ const { createHash, randomBytes } = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'luxury-store-dev-secret';
+const DEFAULT_JWT_SECRET = 'luxury-store-dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const EMAIL_VERIFICATION_WINDOW_HOURS = Number(
   process.env.EMAIL_VERIFICATION_WINDOW_HOURS || 24,
 );
+const isUsingDefaultJwtSecret = JWT_SECRET === DEFAULT_JWT_SECRET;
+
+if (process.env.NODE_ENV === 'production' && isUsingDefaultJwtSecret) {
+  throw new Error('JWT_SECRET must be set to a secure value in production.');
+}
 
 const hashPassword = (password) => bcrypt.hash(password, 12);
 
@@ -49,9 +55,11 @@ const generateEmailVerificationToken = () => {
 
 module.exports = {
   comparePassword,
+  DEFAULT_JWT_SECRET,
   generateEmailVerificationToken,
   hashPassword,
   hashToken,
+  isUsingDefaultJwtSecret,
   signAdminToken,
   signAuthToken,
   verifyAuthToken,

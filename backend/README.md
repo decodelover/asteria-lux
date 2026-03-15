@@ -1,8 +1,8 @@
 # Backend
 
-This folder contains the Express + PostgreSQL API for `Asteris Luxury Store`.
+This folder contains the Express and PostgreSQL API for `Asteria Luxury Store`.
 
-## Main files
+## Main Files
 
 - `server.js`: API routes, auth, payments, admin tools, static serving
 - `schema.js`: schema creation and seed helpers
@@ -10,6 +10,7 @@ This folder contains the Express + PostgreSQL API for `Asteris Luxury Store`.
 - `db.js`: PostgreSQL connection layer
 - `mailer.js`: SMTP or preview mail delivery
 - `runtime-settings.js`: admin-editable runtime configuration
+- `scripts/api-audit.js`: repeatable backend API smoke audit
 
 ## Scripts
 
@@ -17,6 +18,7 @@ This folder contains the Express + PostgreSQL API for `Asteris Luxury Store`.
 npm install
 npm run seed
 npm start
+npm run audit:api
 ```
 
 ## Notes
@@ -25,5 +27,4 @@ npm start
 - Base API path: `/api`
 - Uploaded product images and payment proofs are stored under `uploads/`
 
-See the root README and [docs/API.md](/c:/WEB%20PROJECTS/luxury-store/docs/API.md) for the full reference.
-
+See the root [README](../README.md) and [docs/API.md](../docs/API.md) for the full reference.

@@ -2,90 +2,64 @@
 
 ## Access
 
-Admin routes:
+Local admin routes:
 
-- `/admin/login`
-- `/admin`
+- login: `/admin/login`
+- dashboard: `/admin`
 
-Admin authentication is separate from customer authentication.
+Default local bootstrap admin:
 
-## Main Sections
+- email: `admin@asterialuxury.local`
+- password: `Admin123!`
 
-### Overview
+Change these credentials before production use.
 
-Use this page to monitor:
+## Admin Areas
 
-- revenue
-- order volume
-- user count
-- pending reviews
-- recent users
-- recent orders
+The admin workspace supports:
 
-### Products
+- dashboard overview and counts
+- product create, edit, delete, and image upload
+- order payment review and tracking updates
+- customer suspension, editing, deletion, and direct email
+- additional admin account management
+- runtime settings for brand, support info, email, and payment settings
 
-Admin can:
+## Roles
 
-- create products
-- edit products
-- delete products
-- upload product images
-- mark products as featured
+Current roles are:
 
-### Orders
+- `owner`
+- `manager`
+- `support`
 
-Admin can:
+Role capabilities are enforced by the backend. Owners have full access, managers focus on operations, and support has a narrower support-oriented scope.
 
-- change order status
-- update payment status
-- review bank-transfer proof submissions
-- add tracking carrier, tracking number, tracking URL, and delivery estimate
-- add internal admin notes
-- send direct customer order emails
+## Common Workflows
 
-### Users
+### Review a bank-transfer order
 
-Admin can:
+1. Open the order in the admin dashboard.
+2. Review the uploaded proof.
+3. Update payment status and order status.
+4. Add tracking information if available.
+5. Notify the customer if needed.
 
-- open user workspace
-- edit customer details
-- mark email as verified or unverified
-- control newsletter opt-in
-- suspend or restore users
-- send direct user emails
-- delete users
+### Send a direct customer email
 
-### Team
+1. Open the order or user record.
+2. Use the email form in the admin UI.
+3. Submit the message.
 
-Admin can:
+### Add a product
 
-- create operational admins
-- change admin role
-- activate or deactivate admins
-- rotate passwords
+1. Upload a product image.
+2. Create the product with name, description, category, price, and stock.
+3. Verify it appears on the storefront.
 
-### Inbox
+## Operational Notes
 
-Admin can review customer contact submissions from the storefront.
-
-### Settings
-
-Admin runtime settings control:
-
-- store branding
-- support details
-- hero headlines
-- SMTP/email settings
-- Paystack keys
-- bank transfer account details
-- locale and currency settings
-
-These values are read by the live storefront and API.
-
-## Security Recommendations
-
-1. Replace the default admin password immediately.
-2. Keep owner credentials private.
-3. Use manager/support accounts for day-to-day operations.
-4. Only enter live SMTP and payment keys in trusted deployment environments.
-
+- Uploaded files are stored under `backend/uploads/`
+- Email delivery depends on valid SMTP credentials
+- Suspended customers cannot sign in
+- Order tracking lookup requires either the owning account or the matching customer email

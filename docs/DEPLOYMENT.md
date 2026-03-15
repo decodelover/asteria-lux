@@ -1,114 +1,80 @@
 # Deployment Guide
 
-## Deployment Models
+This project can be deployed in two main ways:
 
-### Option 1: Single backend service serving the frontend build
+- separate frontend and backend hosts
+- a single host that serves the built frontend from Express
 
-Use this when you want one Node service to serve both the API and the built frontend.
+## Required Backend Configuration
 
-Flow:
+Set these values in `backend/.env` or your hosting provider secrets:
 
-1. Build the frontend with `npm run build`.
-2. Keep `frontend/dist` available beside the backend.
-3. Start the backend with `npm start`.
-4. Route all traffic to the backend service.
+- database connection values: `DATABASE_URL` or `DB_*`
+- `JWT_SECRET`
+- `APP_BASE_URL`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM_EMAIL`
+- `STORE_SUPPORT_EMAIL`
+- `PAYSTACK_PUBLIC_KEY`
+- `PAYSTACK_SECRET_KEY`
+- `BANK_*`
+- `WHATSAPP_NUMBER`
 
-### Option 2: Split deployment
+Optional but recommended:
 
-Use this when the frontend is hosted separately, for example:
+- `NODE_ENV=production`
+- `FRONTEND_URL`
+- `BACKEND_PUBLIC_URL`
 
-- frontend on Vercel
-- backend on Render, Railway, Fly.io, or a VPS
+## Required Frontend Configuration
 
-Required configuration:
+Set these if the frontend is hosted separately:
 
-- frontend: `VITE_API_BASE_URL=https://your-api-domain.com/api`
-- backend: `FRONTEND_URL=https://your-frontend-domain.com`
-- backend: `APP_BASE_URL=https://your-frontend-domain.com`
-- backend: `BACKEND_PUBLIC_URL=https://your-api-domain.com`
+- `VITE_API_BASE_URL`
+- `VITE_STORE_CURRENCY`
+- `VITE_STORE_LOCALE`
+- `VITE_WHATSAPP_NUMBER`
+- `VITE_WHATSAPP_MESSAGE`
 
-## Environment Variables
+## Backend Deployment Checklist
 
-### Backend
+1. Provision PostgreSQL.
+2. Add backend environment variables.
+3. Run `npm install`.
+4. Run `npm run seed` if you need the starter catalog.
+5. Start the API with `npm start`.
+6. Confirm `GET /api/health` returns `readiness.ready: true`.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `PORT` | No | Express port, default `5000` |
-| `DATABASE_URL` | Yes unless using `DB_*` | Full PostgreSQL connection string |
-| `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME` | Yes if not using `DATABASE_URL` | Manual database config |
-| `DB_SSL` | Sometimes | Enable SSL for managed PostgreSQL |
-| `FRONTEND_URL` | Split deploy only | Allowed frontend origin for CORS |
-| `APP_BASE_URL` | Yes | Public frontend URL used in email verification links |
-| `BACKEND_PUBLIC_URL` | Recommended for split deploy | Public backend URL for uploads and generated asset links |
-| `JWT_SECRET` | Yes | JWT signing secret |
-| `JWT_EXPIRES_IN` | No | JWT duration |
-| `EMAIL_VERIFICATION_WINDOW_HOURS` | No | Verification link lifetime |
-| `STORE_CURRENCY` | No | Default payment currency |
-| `STORE_LOCALE` | No | Default formatting locale |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` | Optional but needed for real inbox delivery | Mail transport |
-| `STORE_SUPPORT_EMAIL` | Recommended | Contact email shown to customers |
-| `PAYSTACK_PUBLIC_KEY`, `PAYSTACK_SECRET_KEY`, `PAYSTACK_CALLBACK_URL` | Optional | Paystack enablement |
-| `BANK_TRANSFER_ENABLED`, `BANK_NAME`, `BANK_ACCOUNT_NAME`, `BANK_ACCOUNT_NUMBER`, `BANK_TRANSFER_INSTRUCTIONS` | Optional | Bank transfer checkout |
+## Frontend Deployment Checklist
 
-### Frontend
+1. Add frontend environment variables.
+2. Run `npm install`.
+3. Run `npm run build`.
+4. Serve the `dist/` folder or deploy it to a static host.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `VITE_API_BASE_URL` | Split deploy only | Absolute API base URL |
-| `VITE_STORE_CURRENCY` | No | Display currency override |
-| `VITE_STORE_LOCALE` | No | Display locale override |
-| `VITE_WHATSAPP_NUMBER` | Optional | Floating WhatsApp CTA |
-| `VITE_WHATSAPP_MESSAGE` | Optional | Default WhatsApp message |
+`frontend/vercel.json` already includes SPA rewrites for Vercel.
 
-## Production Checklist
-
-1. Set real database credentials.
-2. Set `APP_BASE_URL` to the live storefront URL.
-3. Set `BACKEND_PUBLIC_URL` if the backend runs on a different domain.
-4. Configure SMTP if customer emails should go to real inboxes.
-5. Configure Paystack keys if Paystack should be live.
-6. Set bank transfer details if bank transfer should be available.
-7. Build the frontend with `npm run build`.
-8. Ensure `backend/uploads` uses persistent storage if proofs/uploads must survive redeploys.
-9. Replace the default admin password immediately after first login.
-
-## Local Build Commands
-
-```powershell
-cd frontend
-npm run build
-
-cd ..\\backend
-npm run seed
-npm start
-```
-
-## Post-Deployment Smoke Checks
+## Post-Deploy Checks
 
 Run these after deployment:
 
-```text
-GET  /api/health
-GET  /api/products
-GET  /api/categories
-GET  /api/settings/public
-GET  /api/payments/config
-GET  /admin/login
+- open the storefront and admin routes
+- sign up a new customer and confirm the verification email arrives
+- place a test order
+- confirm admin order updates appear in the customer account
+- confirm `/api/health` still reports a healthy configuration
+
+## Persistent Storage
+
+Payment proofs and uploaded product images are stored in `backend/uploads/`. Use persistent storage in production if your backend host has ephemeral filesystems.
+
+## Recommended Pre-Launch Command
+
+```powershell
+cd backend
+npm run audit:api
 ```
-
-Then verify:
-
-1. customer sign up
-2. email verification flow
-3. sign in
-4. add to cart
-5. checkout entry
-6. admin login
-7. admin product update reflecting on the storefront
-
-## Important Runtime Notes
-
-- Without SMTP, the app works in preview-email mode instead of inbox delivery.
-- Without Paystack keys, the Paystack payment flow stays unavailable.
-- Bank transfer proof uploads require writable and persistent backend storage.
-

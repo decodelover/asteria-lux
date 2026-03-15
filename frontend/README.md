@@ -1,6 +1,6 @@
 # Frontend
 
-This folder contains the customer storefront and admin UI for `Asteris Luxury Store`.
+This folder contains the customer storefront and admin UI for `Asteria Luxury Store`.
 
 ## Stack
 
@@ -19,12 +19,11 @@ npm run lint
 npm run build
 ```
 
-## Main application routes
+## Main Routes
 
 - `/` storefront shell
 - `/verify-email` email verification flow
 - `/admin/login` admin sign in
 - `/admin` admin dashboard
 
-See the root README and [docs/DEPLOYMENT.md](/c:/WEB%20PROJECTS/luxury-store/docs/DEPLOYMENT.md) for project-level setup and deployment details.
-
+See the root [README](../README.md) and [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for project-level setup and deployment details.
