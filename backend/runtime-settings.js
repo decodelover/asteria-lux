@@ -86,6 +86,12 @@ const createDefaultSettings = () => ({
       255,
       `http://localhost:${DEFAULT_PORT}`,
     ),
+    brevoApiBaseUrl: normalizeText(
+      process.env.BREVO_API_BASE_URL,
+      255,
+      'https://api.brevo.com/v3',
+    ),
+    brevoApiKey: normalizeOptionalText(process.env.BREVO_API_KEY, 255),
     smtpFromEmail: normalizeOptionalText(process.env.SMTP_FROM_EMAIL, 255),
     smtpHost: normalizeOptionalText(process.env.SMTP_HOST, 255),
     smtpPass: normalizeOptionalText(process.env.SMTP_PASS, 255),
@@ -134,6 +140,11 @@ const normalizeGroup = (key, input = {}, defaults = createDefaultSettings()[key]
     case 'email':
       return {
         appBaseUrl: normalizeText(input.appBaseUrl, 255, defaults.appBaseUrl),
+        brevoApiBaseUrl:
+          normalizeText(input.brevoApiBaseUrl, 255, defaults.brevoApiBaseUrl) ||
+          defaults.brevoApiBaseUrl,
+        brevoApiKey:
+          normalizeOptionalText(input.brevoApiKey, 255) || defaults.brevoApiKey,
         smtpFromEmail:
           normalizeOptionalText(input.smtpFromEmail, 255) || defaults.smtpFromEmail,
         smtpHost: normalizeOptionalText(input.smtpHost, 255) || defaults.smtpHost,

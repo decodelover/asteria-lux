@@ -6,8 +6,6 @@ const { getRuntimeSettings } = require('./runtime-settings');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const FALLBACK_STORE_NAME = 'Asteria Luxury House';
-const BREVO_API_BASE_URL = String(process.env.BREVO_API_BASE_URL || 'https://api.brevo.com/v3').trim();
-const BREVO_API_KEY = String(process.env.BREVO_API_KEY || '').trim();
 const SMTP_CONNECTION_TIMEOUT_MS = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000);
 const SMTP_GREETING_TIMEOUT_MS = Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000);
 const SMTP_SOCKET_TIMEOUT_MS = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000);
@@ -41,7 +39,15 @@ const buildMailbox = (displayName, value) => {
   return emailAddress ? `${displayName} <${emailAddress}>` : '';
 };
 
-const hasBrevoApiConfig = () => Boolean(BREVO_API_KEY);
+const getBrevoApiBaseUrl = (settings) =>
+  String(
+    settings?.email?.brevoApiBaseUrl || process.env.BREVO_API_BASE_URL || 'https://api.brevo.com/v3',
+  ).trim();
+
+const getBrevoApiKey = (settings) =>
+  String(settings?.email?.brevoApiKey || process.env.BREVO_API_KEY || '').trim();
+
+const hasBrevoApiConfig = (settings) => Boolean(getBrevoApiKey(settings));
 
 const withTimeout = (promise, timeoutMs, message) =>
   new Promise((resolve, reject) => {
@@ -70,7 +76,7 @@ const getMailMode = async () => {
       settings.email.smtpPass,
   );
 
-  if (hasBrevoApiConfig()) {
+  if (hasBrevoApiConfig(settings)) {
     return 'brevo_api';
   }
 
@@ -155,11 +161,13 @@ const buildBrandedText = ({ settings, subject, text }) => {
 };
 
 const sendViaBrevoApi = async ({ html, replyTo, settings, subject, text, to }) => {
+  const brevoApiKey = getBrevoApiKey(settings);
+  const brevoApiBaseUrl = getBrevoApiBaseUrl(settings);
   const { senderEmail, storeName, supportEmail } = getBrandContext(settings);
   const toEmail = extractEmailAddress(to);
   const replyEmail = extractEmailAddress(replyTo || supportEmail);
 
-  if (!BREVO_API_KEY) {
+  if (!brevoApiKey) {
     return {
       delivered: false,
       error: 'Brevo API key is not configured.',
@@ -190,11 +198,11 @@ const sendViaBrevoApi = async ({ html, replyTo, settings, subject, text, to }) =
   const timer = setTimeout(() => controller.abort(), MAIL_SEND_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${BREVO_API_BASE_URL}/smtp/email`, {
+    const response = await fetch(`${brevoApiBaseUrl}/smtp/email`, {
       method: 'POST',
       headers: {
         accept: 'application/json',
-        'api-key': BREVO_API_KEY,
+        'api-key': brevoApiKey,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
@@ -266,6 +274,8 @@ const buildMailerKey = (settings, mode) =>
     .createHash('sha1')
     .update(
       JSON.stringify({
+        brevoApiBaseUrl: settings.email.brevoApiBaseUrl,
+        hasBrevoApiKey: Boolean(settings.email.brevoApiKey || process.env.BREVO_API_KEY),
         from: settings.email.smtpFromEmail,
         host: settings.email.smtpHost,
         mode,
@@ -306,7 +316,7 @@ const createMailer = async (settings) => {
       settings.email.smtpPass,
   );
 
-  if (hasBrevoApiConfig()) {
+  if (hasBrevoApiConfig(settings)) {
     currentMailMode = 'brevo_api';
     return {
       mode: 'brevo_api',

@@ -147,6 +147,8 @@ const createSettingsForm = (settings) => ({
   },
   email: {
     appBaseUrl: settings?.email?.appBaseUrl || '',
+    brevoApiBaseUrl: settings?.email?.brevoApiBaseUrl || 'https://api.brevo.com/v3',
+    brevoApiKey: settings?.email?.brevoApiKey || '',
     smtpFromEmail: settings?.email?.smtpFromEmail || '',
     smtpHost: settings?.email?.smtpHost || '',
     smtpPass: settings?.email?.smtpPass || '',
@@ -1902,7 +1904,7 @@ export function AdminDashboardPage() {
       </Panel>
 
       <Panel
-        description="Verification, order, and admin notification mail settings."
+        description="Verification, order, and admin notification mail settings. On Render, use the Brevo API key because SMTP ports are blocked on free services."
         icon="bi-envelope-at"
         title="Email delivery"
       >
@@ -1912,6 +1914,24 @@ export function AdminDashboardPage() {
               className={INPUT_CLASS}
               value={settingsForm.email.appBaseUrl}
               onChange={(event) => updateSettingsField('email', 'appBaseUrl', event.target.value)}
+            />
+          </Field>
+
+          <Field label="Brevo API key">
+            <input
+              className={INPUT_CLASS}
+              placeholder="Use this on Render when SMTP ports are blocked"
+              type="password"
+              value={settingsForm.email.brevoApiKey}
+              onChange={(event) => updateSettingsField('email', 'brevoApiKey', event.target.value)}
+            />
+          </Field>
+
+          <Field label="Brevo API base URL">
+            <input
+              className={INPUT_CLASS}
+              value={settingsForm.email.brevoApiBaseUrl}
+              onChange={(event) => updateSettingsField('email', 'brevoApiBaseUrl', event.target.value)}
             />
           </Field>
 
