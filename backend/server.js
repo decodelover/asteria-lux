@@ -355,8 +355,8 @@ const buildReadinessReport = ({ emailMode, settings }) => {
     warnings.push('BACKEND_PUBLIC_URL still points to localhost and should be replaced with the live API domain.');
   }
 
-  if (emailMode !== 'smtp') {
-    warnings.push('SMTP is not configured, so verification and order emails will not reach real inboxes in production.');
+  if (!['smtp', 'brevo_api'].includes(emailMode)) {
+    warnings.push('A real email provider is not configured, so verification and order emails will not reach real inboxes in production.');
   }
 
   if (!isPaystackEnabled(settings) && !isBankTransferEnabled(settings)) {
@@ -1493,7 +1493,7 @@ api.get(
     const readiness = buildReadinessReport({ emailMode, settings });
 
     res.status(200).json({
-      emailConfigured: emailMode === 'smtp',
+      emailConfigured: ['smtp', 'brevo_api'].includes(emailMode),
       emailMode,
       paymentConfig: buildPaymentConfig(settings),
       readiness,
