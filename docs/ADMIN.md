@@ -21,7 +21,7 @@ The admin workspace supports:
 - order payment review and tracking updates
 - customer suspension, editing, deletion, and direct email
 - additional admin account management
-- runtime settings for brand, support info, email, and payment settings
+- runtime settings for brand, support info, SMTP email, verification behavior, and payment settings
 
 ## Roles
 
@@ -58,6 +58,7 @@ Role capabilities are enforced by the backend. Owners have full access, managers
 ## Operational Notes
 
 - Uploaded files are stored under `backend/uploads/`
-- Email delivery depends on valid SMTP credentials
+- Email delivery depends on valid SMTP credentials saved in the admin settings panel
+- Customer email verification can be turned on or off from the admin settings panel
 - Suspended customers cannot sign in
 - Order tracking lookup requires either the owning account or the matching customer email

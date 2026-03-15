@@ -62,7 +62,16 @@ export function AuthProvider({ children }) {
   }
 
   const signUp = async (payload) => {
-    return api.signUp(payload)
+    const response = await api.signUp(payload)
+
+    if (response?.requiresEmailVerification === false && response?.token) {
+      setAuthToken(response.token)
+      setToken(response.token)
+      setUser(response.user || null)
+      await refreshProfile(response.token)
+    }
+
+    return response
   }
 
   const signOut = () => {

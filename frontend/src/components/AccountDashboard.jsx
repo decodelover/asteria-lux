@@ -97,6 +97,7 @@ function DashboardStat({ icon, label, value }) {
 
 export function AccountDashboard({
   dashboard,
+  emailVerificationEnabled = true,
   message,
   messageTone,
   onFieldChange,
@@ -132,8 +133,20 @@ export function AccountDashboard({
           <div className="go-profile-copy">
             <div className="go-dashboard-badges">
               <span className="go-dashboard-chip">Client profile</span>
-              <span className={`go-status-pill ${user.emailVerified ? 'success' : 'warning'}`}>
-                {user.emailVerified ? 'Verified' : 'Verification pending'}
+              <span
+                className={`go-status-pill ${
+                  emailVerificationEnabled
+                    ? user.emailVerified
+                      ? 'success'
+                      : 'warning'
+                    : 'success'
+                }`}
+              >
+                {emailVerificationEnabled
+                  ? user.emailVerified
+                    ? 'Verified'
+                    : 'Verification pending'
+                  : 'Account active'}
               </span>
             </div>
             <p className="go-profile-name">{user.fullName}</p>
@@ -169,7 +182,7 @@ export function AccountDashboard({
         </div>
       </div>
 
-      {!user.emailVerified && (
+      {emailVerificationEnabled && !user.emailVerified && (
         <button className="go-secondary-btn" onClick={onResendVerification} type="button">
           Resend verification
         </button>

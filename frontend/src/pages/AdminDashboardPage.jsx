@@ -176,9 +176,10 @@ const createSettingsForm = (settings) => ({
   },
   email: {
     appBaseUrl: settings?.email?.appBaseUrl || '',
-    provider: settings?.email?.provider || 'auto',
-    brevoApiBaseUrl: settings?.email?.brevoApiBaseUrl || 'https://api.brevo.com/v3',
-    brevoApiKey: settings?.email?.brevoApiKey || '',
+    requireEmailVerification:
+      settings?.email?.requireEmailVerification === undefined
+        ? true
+        : Boolean(settings?.email?.requireEmailVerification),
     smtpFromEmail: settings?.email?.smtpFromEmail || '',
     smtpHost: settings?.email?.smtpHost || '',
     smtpPass: settings?.email?.smtpPass || '',
@@ -2249,7 +2250,7 @@ export function AdminDashboardPage() {
       </Panel>
 
       <Panel
-        description="Verification, order, and admin notification mail settings. On Render, use the Brevo API key because SMTP ports are blocked on free services."
+        description="Storefront verification behavior and SMTP settings for verification, order, and admin notification emails."
         icon="bi-envelope-at"
         title="Email delivery"
       >
@@ -2262,36 +2263,14 @@ export function AdminDashboardPage() {
             />
           </Field>
 
-          <Field label="Delivery provider">
-            <select
-              className={INPUT_CLASS}
-              value={settingsForm.email.provider}
-              onChange={(event) => updateSettingsField('email', 'provider', event.target.value)}
-            >
-              <option value="auto">Auto detect</option>
-              <option value="brevo_api">Brevo API</option>
-              <option value="smtp">SMTP</option>
-              <option value="disabled">Disabled</option>
-            </select>
-          </Field>
-
-          <Field label="Brevo API key">
-            <input
-              className={INPUT_CLASS}
-              placeholder="Use this on Render when SMTP ports are blocked"
-              type="password"
-              value={settingsForm.email.brevoApiKey}
-              onChange={(event) => updateSettingsField('email', 'brevoApiKey', event.target.value)}
-            />
-          </Field>
-
-          <Field label="Brevo API base URL">
-            <input
-              className={INPUT_CLASS}
-              value={settingsForm.email.brevoApiBaseUrl}
-              onChange={(event) => updateSettingsField('email', 'brevoApiBaseUrl', event.target.value)}
-            />
-          </Field>
+          <ToggleField
+            checked={settingsForm.email.requireEmailVerification}
+            copy="Require email verification for new customers"
+            hint="When enabled, new signups are sent to the verification page and must confirm their inbox link before returning to sign in."
+            onChange={(event) =>
+              updateSettingsField('email', 'requireEmailVerification', event.target.checked)
+            }
+          />
 
           <Field label="SMTP from">
             <input
@@ -2365,7 +2344,7 @@ export function AdminDashboardPage() {
               <span>Save & send test email</span>
             </button>
             <p className="text-sm text-slate-500">
-              This saves the current mail settings first, then sends a test message using the selected provider.
+              This saves the current SMTP settings first, then sends a test message to confirm delivery.
             </p>
           </div>
         </div>
@@ -2400,8 +2379,8 @@ export function AdminDashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f3fb] text-slate-900">
-      <div className="mx-auto flex max-w-[1700px] gap-4 px-4 py-4 sm:px-6 lg:gap-6 lg:px-8">
+    <main className="min-h-screen overflow-x-hidden bg-[#f6f3fb] text-slate-900">
+      <div className="mx-auto flex w-full max-w-[1700px] min-w-0 gap-4 overflow-x-hidden px-4 py-4 sm:px-6 lg:gap-6 lg:px-8">
         {menuOpen ? (
           <button
             className="fixed inset-0 z-30 bg-[#19061f]/55 backdrop-blur-sm lg:hidden"
@@ -2412,7 +2391,7 @@ export function AdminDashboardPage() {
         ) : null}
 
         <aside
-          className={`fixed inset-y-4 left-4 z-40 flex w-[292px] flex-col overflow-hidden rounded-[34px] bg-[#250c34] text-white shadow-[0_34px_120px_rgba(50,13,74,0.42)] transition duration-300 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:translate-x-0 ${
+          className={`fixed inset-y-4 left-4 z-40 flex w-[292px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[34px] bg-[#250c34] text-white shadow-[0_34px_120px_rgba(50,13,74,0.42)] transition duration-300 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:translate-x-0 ${
             menuOpen ? 'translate-x-0' : '-translate-x-[120%]'
           }`}
         >
@@ -2494,7 +2473,7 @@ export function AdminDashboardPage() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1 overflow-x-hidden">
           <div className="space-y-6">
             <header className="sticky top-4 z-20 rounded-[30px] border border-white/70 bg-white/85 p-4 shadow-[0_26px_80px_rgba(94,49,133,0.1)] backdrop-blur sm:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -2555,7 +2534,7 @@ export function AdminDashboardPage() {
             {message ? (
               <div
                 aria-live={messageTone === 'warning' ? 'assertive' : 'polite'}
-                className={`fixed bottom-5 right-5 z-50 flex max-w-sm items-start gap-3 rounded-[24px] border px-5 py-4 text-sm shadow-[0_18px_44px_rgba(64,24,97,0.18)] ${
+                className={`fixed bottom-5 left-4 right-4 z-50 flex items-start gap-3 rounded-[24px] border px-5 py-4 text-sm shadow-[0_18px_44px_rgba(64,24,97,0.18)] sm:left-auto sm:right-5 sm:max-w-sm ${
                   messageTone === 'warning'
                     ? 'border-[#f3d8b7] bg-[#fff7ed] text-[#8d6112]'
                     : 'border-[#d8eddc] bg-[#f1fbf3] text-[#1f6b38]'

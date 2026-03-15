@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useSiteSettings } from '../hooks/useSiteSettings'
 import { formatCurrency, formatShortDate } from '../utils/format'
 
 export function AccountPage() {
   const { loading, orders, resendVerification, signOut, user } = useAuth()
+  const { publicSettings } = useSiteSettings()
   const [message, setMessage] = useState('')
   const [mailDelivered, setMailDelivered] = useState(true)
   const [previewUrl, setPreviewUrl] = useState('')
+  const emailVerificationEnabled = publicSettings.emailVerificationEnabled !== false
 
   if (loading) {
     return (
@@ -61,7 +64,11 @@ export function AccountPage() {
                   Email status
                 </p>
                 <p className="mt-3 text-sm font-semibold text-[#fff6ea]">
-                  {user.emailVerified ? 'Verified' : 'Pending verification'}
+                  {emailVerificationEnabled
+                    ? user.emailVerified
+                      ? 'Verified'
+                      : 'Pending verification'
+                    : 'Account active'}
                 </p>
               </div>
               <div className="metric-card">
@@ -86,7 +93,7 @@ export function AccountPage() {
               Account actions
             </p>
             <div className="mt-5 grid gap-3">
-              {!user.emailVerified && (
+              {emailVerificationEnabled && !user.emailVerified && (
                 <button
                   className="button-secondary w-full justify-center"
                   onClick={async () => {

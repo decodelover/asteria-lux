@@ -399,8 +399,8 @@ const buildReadinessReport = ({ emailMode, settings }) => {
     warnings.push('BACKEND_PUBLIC_URL still points to localhost and should be replaced with the live API domain.');
   }
 
-  if (!['smtp', 'brevo_api'].includes(emailMode)) {
-    warnings.push('A real email provider is not configured, so verification and order emails will not reach real inboxes in production.');
+  if (emailMode !== 'smtp') {
+    warnings.push('SMTP email delivery is not configured, so verification and order emails will not reach real inboxes in production.');
   }
 
   if (!isPaystackEnabled(settings) && !isBankTransferEnabled(settings)) {
@@ -1577,7 +1577,7 @@ api.get(
     const readiness = buildReadinessReport({ emailMode, settings });
 
     res.status(200).json({
-      emailConfigured: ['smtp', 'brevo_api'].includes(emailMode),
+      emailConfigured: emailMode === 'smtp',
       emailMode,
       paymentConfig: buildPaymentConfig(settings),
       readiness,
@@ -1861,6 +1861,8 @@ api.post(
 
     try {
       await client.query('BEGIN');
+      const settings = await getRuntimeSettings(client);
+      const requiresEmailVerification = Boolean(settings?.email?.requireEmailVerification);
 
       const existingResult = await client.query('SELECT * FROM users WHERE email = $1 FOR UPDATE;', [
         email,
@@ -1872,7 +1874,7 @@ api.post(
       }
 
       const passwordHash = await hashPassword(password);
-      const verification = generateEmailVerificationToken();
+      const verification = requiresEmailVerification ? generateEmailVerificationToken() : null;
 
       const userResult = await client.query(
         `
@@ -1906,8 +1908,8 @@ api.post(
           deviceContext.timezone,
           deviceContext.latitude,
           deviceContext.longitude,
-          verification.tokenHash,
-          verification.expiresAt,
+          verification?.tokenHash || null,
+          verification?.expiresAt || null,
         ],
       );
 
@@ -1930,6 +1932,17 @@ api.post(
 
       const user = userResult.rows[0];
       const token = signAuthToken(user);
+
+      if (!requiresEmailVerification) {
+        return res.status(201).json({
+          requiresEmailVerification: false,
+          success: true,
+          message: 'Account created successfully. Welcome to your dashboard.',
+          token,
+          user: mapUserRow(user),
+        });
+      }
+
       const verificationMail = await sendVerificationEmail({
         email,
         fullName,
@@ -1940,6 +1953,7 @@ api.post(
         mailDelivered: verificationMail.delivery.delivered,
         mailError: verificationMail.delivery.error || undefined,
         mailMode: verificationMail.delivery.mode,
+        requiresEmailVerification: true,
         success: true,
         message: buildMailMessage({
           delivery: verificationMail.delivery,
@@ -1985,6 +1999,8 @@ api.post(
 
     const user = userResult.rows[0];
     const passwordMatches = await comparePassword(password, user.password_hash);
+    const settings = await getRuntimeSettings();
+    const requiresEmailVerification = Boolean(settings?.email?.requireEmailVerification);
 
     if (!passwordMatches) {
       return sendApiError(res, 401, 'Invalid email or password.');
@@ -2026,9 +2042,10 @@ api.post(
 
     res.status(200).json({
       success: true,
-      message: updatedUser.email_verified_at
-        ? 'Signed in successfully.'
-        : 'Signed in successfully. Please verify your email to complete account setup.',
+      message:
+        requiresEmailVerification && !updatedUser.email_verified_at
+          ? 'Signed in successfully. Please verify your email to complete account setup.'
+          : 'Signed in successfully.',
       token: signAuthToken(updatedUser),
       user: mapUserRow(updatedUser),
     });
@@ -2154,6 +2171,12 @@ api.post(
   '/auth/resend-verification',
   authLimiter,
   handleAsync(async (req, res) => {
+    const settings = await getRuntimeSettings();
+
+    if (!settings?.email?.requireEmailVerification) {
+      return sendApiError(res, 409, 'Email verification is currently turned off by the store admin.');
+    }
+
     const authenticatedUser = await resolveAuthenticatedUser(req);
     const requestedEmail = String(req.body.email || '').trim().toLowerCase();
     const email = authenticatedUser?.email || requestedEmail;

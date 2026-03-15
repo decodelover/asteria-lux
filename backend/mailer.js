@@ -39,44 +39,13 @@ const buildMailbox = (displayName, value) => {
   return emailAddress ? `${displayName} <${emailAddress}>` : '';
 };
 
-const getBrevoApiBaseUrl = (settings) =>
-  String(
-    settings?.email?.brevoApiBaseUrl || process.env.BREVO_API_BASE_URL || 'https://api.brevo.com/v3',
-  ).trim();
-
-const getBrevoApiKey = (settings) =>
-  String(settings?.email?.brevoApiKey || process.env.BREVO_API_KEY || '').trim();
-
-const hasBrevoApiConfig = (settings) => Boolean(getBrevoApiKey(settings));
-
-const getRequestedMailProvider = (settings) =>
-  String(settings?.email?.provider || 'auto').trim().toLowerCase();
-
 const resolveMailMode = (settings) => {
-  const requestedProvider = getRequestedMailProvider(settings);
   const hasSmtpConfig = Boolean(
     settings?.email?.smtpHost &&
       settings?.email?.smtpPort &&
       settings?.email?.smtpUser &&
       settings?.email?.smtpPass,
   );
-  const hasBrevo = hasBrevoApiConfig(settings);
-
-  if (requestedProvider === 'disabled') {
-    return isProduction ? 'disabled' : 'preview';
-  }
-
-  if (requestedProvider === 'brevo_api') {
-    return hasBrevo ? 'brevo_api' : isProduction ? 'disabled' : 'preview';
-  }
-
-  if (requestedProvider === 'smtp') {
-    return hasSmtpConfig ? 'smtp' : isProduction ? 'disabled' : 'preview';
-  }
-
-  if (hasBrevo) {
-    return 'brevo_api';
-  }
 
   if (hasSmtpConfig) {
     return 'smtp';
@@ -181,122 +150,11 @@ const buildBrandedText = ({ settings, subject, text }) => {
   return output.trim();
 };
 
-const sendViaBrevoApi = async ({ html, replyTo, settings, subject, text, to }) => {
-  const brevoApiKey = getBrevoApiKey(settings);
-  const brevoApiBaseUrl = getBrevoApiBaseUrl(settings);
-  const { senderEmail, storeName, supportEmail } = getBrandContext(settings);
-  const toEmail = extractEmailAddress(to);
-  const replyEmail = extractEmailAddress(replyTo || supportEmail);
-
-  if (!brevoApiKey) {
-    return {
-      delivered: false,
-      error: 'Brevo API key is not configured.',
-      mode: 'brevo_api',
-      previewUrl: null,
-    };
-  }
-
-  if (!senderEmail) {
-    return {
-      delivered: false,
-      error: 'SMTP_FROM_EMAIL or STORE_SUPPORT_EMAIL must be configured for Brevo API delivery.',
-      mode: 'brevo_api',
-      previewUrl: null,
-    };
-  }
-
-  if (!toEmail) {
-    return {
-      delivered: false,
-      error: 'Recipient email is required.',
-      mode: 'brevo_api',
-      previewUrl: null,
-    };
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), MAIL_SEND_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${brevoApiBaseUrl}/smtp/email`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'api-key': brevoApiKey,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          email: senderEmail,
-          name: storeName,
-        },
-        ...(replyEmail
-          ? {
-              replyTo: {
-                email: replyEmail,
-                name: `${storeName} Support`,
-              },
-            }
-          : {}),
-        subject,
-        htmlContent: html,
-        textContent: text,
-        to: [{ email: toEmail }],
-      }),
-      signal: controller.signal,
-    });
-
-    const raw = await response.text();
-    let payload = null;
-
-    try {
-      payload = raw ? JSON.parse(raw) : null;
-    } catch {
-      payload = null;
-    }
-
-    if (!response.ok) {
-      return {
-        delivered: false,
-        error:
-          payload?.message ||
-          payload?.code ||
-          raw ||
-          `Brevo API request failed with status ${response.status}.`,
-        mode: 'brevo_api',
-        previewUrl: null,
-      };
-    }
-
-    return {
-      delivered: true,
-      messageId: payload?.messageId || undefined,
-      mode: 'brevo_api',
-      previewUrl: null,
-    };
-  } catch (error) {
-    return {
-      delivered: false,
-      error:
-        error.name === 'AbortError'
-          ? 'Brevo API delivery timed out.'
-          : error.message || 'Brevo API delivery failed.',
-      mode: 'brevo_api',
-      previewUrl: null,
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-};
-
 const buildMailerKey = (settings, mode) =>
   crypto
     .createHash('sha1')
     .update(
       JSON.stringify({
-        brevoApiBaseUrl: settings.email.brevoApiBaseUrl,
-        hasBrevoApiKey: Boolean(settings.email.brevoApiKey || process.env.BREVO_API_KEY),
         from: settings.email.smtpFromEmail,
         host: settings.email.smtpHost,
         mode,
@@ -331,14 +189,6 @@ const createPreviewMailer = async () => {
 
 const createMailer = async (settings) => {
   const resolvedMode = resolveMailMode(settings);
-
-  if (resolvedMode === 'brevo_api') {
-    currentMailMode = 'brevo_api';
-    return {
-      mode: 'brevo_api',
-      transporter: null,
-    };
-  }
 
   if (resolvedMode === 'smtp') {
     currentMailMode = 'smtp';
@@ -417,17 +267,6 @@ const sendMail = async ({ html, subject, text, to }) => {
   const replyTo = supportEmail ? buildMailbox(`${storeName} Support`, supportEmail) : undefined;
   const brandedHtml = buildBrandedHtml({ bodyHtml: html, settings });
   const brandedText = buildBrandedText({ settings, subject: brandedSubject, text });
-
-  if (mailer.mode === 'brevo_api') {
-    return sendViaBrevoApi({
-      html: brandedHtml,
-      replyTo,
-      settings,
-      subject: brandedSubject,
-      text: brandedText,
-      to,
-    });
-  }
 
   if (!mailer.transporter) {
     console.log(`Mail not sent because email delivery is disabled. Subject: ${subject} To: ${to}`);

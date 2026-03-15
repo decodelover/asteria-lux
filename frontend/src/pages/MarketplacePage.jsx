@@ -508,6 +508,7 @@ function CartItemCard({ busyKey, item, onQuantityChange }) {
 function AccountPanel({
   authMode,
   dashboard,
+  emailVerificationEnabled,
   messageTone,
   message,
   onAuthModeChange,
@@ -532,6 +533,7 @@ function AccountPanel({
     return (
       <AccountDashboard
         dashboard={dashboard}
+        emailVerificationEnabled={emailVerificationEnabled}
         message={message}
         messageTone={messageTone}
         onFieldChange={onSettingsFieldChange}
@@ -2014,6 +2016,20 @@ export function MarketplacePage() {
           ...signUpPayload,
           deviceContext: currentDeviceContext,
         })
+
+        if (response.requiresEmailVerification === false) {
+          setSearchParams({ tab: 'account' })
+          setActiveTab('account')
+          setAuthMessage(response.message || 'Account created successfully. Welcome to your dashboard.')
+          setAuthMessageTone('success')
+          setAuthPreviewUrl('')
+          setFlashMessage({
+            text: 'Account created successfully.',
+            type: 'success',
+          })
+          return
+        }
+
         const verificationParams = new URLSearchParams()
 
         verificationParams.set('email', signUpForm.email)
@@ -2518,6 +2534,7 @@ export function MarketplacePage() {
               <AccountPanel
                 authMode={authMode}
                 dashboard={dashboard}
+                emailVerificationEnabled={publicSettings.emailVerificationEnabled !== false}
                 message={authMessage}
                 messageTone={authMessageTone}
                 onAuthModeChange={handleAuthModeChange}

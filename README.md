@@ -103,6 +103,7 @@ Common backend variables:
 - `APP_BASE_URL`
 - `FRONTEND_URL`
 - `BACKEND_PUBLIC_URL`
+- `EMAIL_VERIFICATION_REQUIRED`
 - `SMTP_*`
 - `PAYSTACK_*`
 - `BANK_*`
@@ -122,6 +123,7 @@ The initial owner admin is created from your configured `ADMIN_EMAIL` and `ADMIN
 environment variables during bootstrap.
 
 After first sign-in, change the password from the admin dashboard security panel before going live.
+The admin settings workspace also lets you manage SMTP mail settings and toggle customer email verification without editing code.
 
 ## Quality Checks
 

@@ -3,7 +3,6 @@ require('dotenv').config();
 const db = require('./db');
 
 const DEFAULT_PORT = Number(process.env.PORT || 5000);
-const EMAIL_PROVIDERS = new Set(['auto', 'disabled', 'smtp', 'brevo_api']);
 const MIN_FEATURED_VIDEO_COUNT = 3;
 const MAX_FEATURED_VIDEO_COUNT = 5;
 
@@ -48,14 +47,6 @@ const pickPort = (input, key, fallback = 587) =>
 
 const pickBoolean = (input, key, fallback = false) =>
   hasOwn(input, key) ? parseBoolean(input[key], fallback) : fallback;
-
-const normalizeEmailProvider = (value, fallback = 'auto') => {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return EMAIL_PROVIDERS.has(normalized) ? normalized : fallback;
-};
-
-const pickEmailProvider = (input, key, fallback = 'auto') =>
-  hasOwn(input, key) ? normalizeEmailProvider(input[key], fallback) : fallback;
 
 const normalizeHeadlines = (value, fallback) => {
   if (!Array.isArray(value)) {
@@ -156,21 +147,12 @@ const createDefaultSettings = () => ({
     paystackSecretKey: normalizeOptionalText(process.env.PAYSTACK_SECRET_KEY, 255),
   },
   email: {
-    provider: normalizeEmailProvider(
-      process.env.EMAIL_PROVIDER,
-      process.env.BREVO_API_KEY ? 'brevo_api' : 'auto',
-    ),
     appBaseUrl: normalizeText(
       process.env.APP_BASE_URL || process.env.FRONTEND_URL,
       255,
       `http://localhost:${DEFAULT_PORT}`,
     ),
-    brevoApiBaseUrl: normalizeText(
-      process.env.BREVO_API_BASE_URL,
-      255,
-      'https://api.brevo.com/v3',
-    ),
-    brevoApiKey: normalizeOptionalText(process.env.BREVO_API_KEY, 255),
+    requireEmailVerification: parseBoolean(process.env.EMAIL_VERIFICATION_REQUIRED, true),
     smtpFromEmail: normalizeOptionalText(process.env.SMTP_FROM_EMAIL, 255),
     smtpHost: normalizeOptionalText(process.env.SMTP_HOST, 255),
     smtpPass: normalizeOptionalText(process.env.SMTP_PASS, 255),
@@ -215,10 +197,12 @@ const normalizeGroup = (key, input = {}, defaults = createDefaultSettings()[key]
       };
     case 'email':
       return {
-        provider: pickEmailProvider(input, 'provider', defaults.provider),
         appBaseUrl: pickText(input, 'appBaseUrl', 255, defaults.appBaseUrl),
-        brevoApiBaseUrl: pickText(input, 'brevoApiBaseUrl', 255, defaults.brevoApiBaseUrl),
-        brevoApiKey: pickOptionalText(input, 'brevoApiKey', 255, defaults.brevoApiKey),
+        requireEmailVerification: pickBoolean(
+          input,
+          'requireEmailVerification',
+          defaults.requireEmailVerification,
+        ),
         smtpFromEmail: pickOptionalText(input, 'smtpFromEmail', 255, defaults.smtpFromEmail),
         smtpHost: pickOptionalText(input, 'smtpHost', 255, defaults.smtpHost),
         smtpPass: pickOptionalText(input, 'smtpPass', 255, defaults.smtpPass),
@@ -318,6 +302,7 @@ const getPublicSiteSettings = async (client = db) => {
   const settings = await getRuntimeSettings(client);
 
   return {
+    emailVerificationEnabled: Boolean(settings.email.requireEmailVerification),
     featuredVideos: settings.storefront.featuredVideos,
     heroHeadlines: settings.storefront.heroHeadlines,
     storeName: settings.brand.storeName,

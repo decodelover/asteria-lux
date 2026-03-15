@@ -37,8 +37,8 @@ export function MailStatusBanner() {
         />
         <p>
           {isDisabled
-            ? 'Email delivery is currently offline. Add SMTP settings in backend/.env before expecting real inbox delivery.'
-            : 'Email is running in local preview mode. Open the verification or order preview links shown in the app unless SMTP is configured.'}
+            ? 'Email delivery is currently offline. Add valid SMTP settings in the admin dashboard before expecting real inbox delivery.'
+            : 'Email is running in local preview mode. Open the verification or order preview links shown in the app until SMTP is configured.'}
         </p>
       </div>
     </div>

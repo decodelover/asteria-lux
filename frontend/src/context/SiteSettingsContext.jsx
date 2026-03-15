@@ -5,6 +5,7 @@ import { SiteSettingsContext } from './site-settings-context'
 const SETTINGS_REFRESH_INTERVAL_MS = 15000
 
 const fallbackSettings = {
+  emailVerificationEnabled: true,
   featuredVideos: [],
   heroHeadlines: [],
   storeName: 'Asteria Luxury House',

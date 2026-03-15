@@ -12,6 +12,7 @@ Set these values in `backend/.env` or your hosting provider secrets:
 - database connection values: `DATABASE_URL` or `DB_*`
 - `JWT_SECRET`
 - `APP_BASE_URL`
+- `EMAIL_VERIFICATION_REQUIRED`
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_SECURE`
@@ -66,6 +67,7 @@ Run these after deployment:
 - sign up a new customer and confirm the verification email arrives
 - place a test order
 - confirm admin order updates appear in the customer account
+- confirm the email verification setting in admin behaves the way you expect for new signups
 - confirm `/api/health` still reports a healthy configuration
 
 ## Persistent Storage

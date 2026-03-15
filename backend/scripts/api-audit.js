@@ -366,8 +366,17 @@ const main = async () => {
     primaryUserId = primarySignup.payload?.user?.id;
     secondaryUserId = secondarySignup.payload?.user?.id;
 
-    assert(primaryToken, 'Primary signup did not return a token.');
     assert(primaryUserId && secondaryUserId, 'Customer signups did not return ids.');
+
+    if (!primaryToken) {
+      const signupLogin = await request('/auth/login', {
+        body: { email: primaryUser.email, password: primaryUser.password },
+        method: 'POST',
+      });
+      primaryToken = signupLogin.payload?.token;
+    }
+
+    assert(primaryToken, 'Primary signup/login did not return a token.');
 
     const profile = await request('/auth/me', { token: primaryToken });
     assert(profile.payload?.user?.email === primaryUser.email, 'auth/me returned the wrong customer.');
@@ -388,6 +397,7 @@ const main = async () => {
 
     await request('/auth/resend-verification', {
       body: { email: secondaryUser.email },
+      expected: [200, 409],
       method: 'POST',
     });
 
