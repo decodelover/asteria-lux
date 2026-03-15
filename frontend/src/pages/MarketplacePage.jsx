@@ -546,7 +546,6 @@ function AccountPanel({
   signInForm,
   signOut,
   signUpForm,
-  storeName,
   submitting,
   user,
 }) {
@@ -575,50 +574,6 @@ function AccountPanel({
   return (
     <section className="go-tab-panel go-reveal" data-reveal data-reveal-delay="40">
       <div className="go-auth-shell go-auth-shell--single">
-        <aside className="go-auth-showcase">
-          <span className="go-auth-badge">
-            {authMode === 'signin' ? 'Client sign in' : 'Create your account'}
-          </span>
-          <div className="go-auth-showcase-copy">
-            <h2>
-              {authMode === 'signin'
-                ? 'Return to your private luxury dashboard.'
-                : 'Join the Asteria client circle.'}
-            </h2>
-            <p>
-              {authMode === 'signin'
-                ? `Access ${storeName || 'Asteria Luxury House'} order tracking, saved pieces, and account updates in one calm workspace.`
-                : 'Create your account to save favorites, place orders faster, and keep every delivery update in one place.'}
-            </p>
-          </div>
-
-          <div className="go-auth-benefits">
-            <div className="go-auth-benefit">
-              <i aria-hidden="true" className="bi bi-shield-check" />
-              <span>Secure access to orders, saved items, and account activity.</span>
-            </div>
-            <div className="go-auth-benefit">
-              <i aria-hidden="true" className="bi bi-bag-heart" />
-              <span>Move from discovery to checkout without losing your selected pieces.</span>
-            </div>
-          </div>
-
-          <div className="go-auth-steps">
-            <div className="go-auth-step">
-              <strong>01</strong>
-              <span>{authMode === 'signin' ? 'Open your dashboard immediately after sign in.' : 'Create your profile with your name, phone, and email.'}</span>
-            </div>
-            <div className="go-auth-step">
-              <strong>02</strong>
-              <span>
-                {emailVerificationEnabled
-                  ? 'If verification is on, confirm your inbox link to complete access.'
-                  : 'If verification is off, you will land straight in your dashboard.'}
-              </span>
-            </div>
-          </div>
-        </aside>
-
         <div className="go-auth-card go-auth-card--single">
           <div className="go-auth-header">
             <div className="go-auth-header-row">
@@ -2620,7 +2575,6 @@ export function MarketplacePage() {
                 signInForm={signInForm}
                 signOut={handleRequestSignOut}
                 signUpForm={signUpForm}
-                storeName={publicSettings.storeName}
                 submitting={authSubmitting}
                 user={user}
               />
