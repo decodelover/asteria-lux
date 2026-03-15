@@ -312,25 +312,6 @@ function FeaturedVideoShowcase({
             </div>
           </div>
         </article>
-
-        <div className="go-featured-video-rail">
-          {featuredVideos.map((video, index) => (
-            <button
-              key={`${video.videoUrl}-${index}`}
-              className={`go-featured-video-card ${activeIndex === index ? 'active' : ''}`}
-              onClick={() => onSelectVideo(index)}
-              type="button"
-            >
-              <span className="go-featured-video-card__index">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <span className="go-featured-video-card__copy">
-                <strong>{getFeaturedVideoTitle(video, index)}</strong>
-                <span>{activeIndex === index ? 'Now showing' : 'Up next in the slideshow'}</span>
-              </span>
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="go-indicators">
